@@ -6,6 +6,14 @@ from market.products.structs.components import ComponentDict
 class ProcessedMaterial(Composite):
 
     LAYER_NUM = 2
+    _existing = {}
 
     def __init__(self, name : str = None, unit_cost : float = 0, components : ComponentDict = None) -> None:
         super().__init__(name, unit_cost, components)
+        ProcessedMaterial._existing.update({name : self})
+
+    def getLayerName(self) -> str:
+        return "Processed"
+    
+    def getAll(self) -> dict:
+        return self._existing
