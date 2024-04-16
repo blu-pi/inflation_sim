@@ -18,8 +18,11 @@ class ComponentDict:
         else:
             self._components[product] = new_weight
 
-    def getComponents(self) -> list:
+    def getAllComponents(self) -> list:
         return self._components.keys()
+    
+    def getWeight(self, component) -> float:
+        return self._components[component]
     
     def getComponentLayers(self) -> list:
         return [prod.LAYER_NUM for prod in self.getComponents()]

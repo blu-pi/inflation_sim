@@ -11,3 +11,7 @@ class Layer:
 
     def setParentLayer(self, parent_layer : 'Layer') -> None:
         self.parent = parent_layer
+
+    def renameMember(self, member_name : str, new_name : str) -> None:
+        member = self.products[member_name]
+        member.setName(new_name)

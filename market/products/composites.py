@@ -11,3 +11,6 @@ class Composite(Product):
 
     def hasComponents(self) -> bool:
         return self.components is not None
+    
+    def setComponents(self, components : ComponentDict) -> None:
+        self.components = components

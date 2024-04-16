@@ -4,13 +4,18 @@ class Product:
     """Essentially abstract."""
 
     LAYER_NUM = 0
+    total_created = 0
 
     def __init__(self, name : str = None, unit_cost : float = 0) -> None:
         self.name = name
         self.unit_cost = unit_cost
-    
-    def setName(self, name : str) -> None:
-        self.name = name
+        Product.total_created += 1
+
+    def setName(self, new_name : str) -> None:
+        self.name = new_name
+
+    def generateName(self) -> str:
+        return self.getLayerName() + str(self.total_created)
     
     def setUnitCost(self, cost : float) -> None:
         self.unit_cost = cost
