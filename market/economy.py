@@ -14,19 +14,27 @@ class Economy:
         ConsumerProduct : "consumer_args"
     }
 
-    layers = []
+    layers = LAYER_ARGS.copy()
 
     def __init__(self, sim_args, node_args) -> None:
         
         self.sim_args = sim_args.conts
 
-        for material, arg_key in Economy.LAYER_ARGS.items():
+        for material_type, arg_key in Economy.LAYER_ARGS.items():
             material_args = node_args[arg_key]
             layer_size = material_args["layer_size"]
             for x in range(layer_size):
-                material.__init__()
-            Economy.layers.append(Layer(material.getLayerName(), material.getAll()))
+                material_type.__init__()
+            Economy.layers.update({material_type : Layer(material_type.getLayerName(), material_type.getAll())})
         #MAKE PRODUCT OBJS
         #CREATE LAYER FOR OBJS
         #RUN SIM
-        pass
+
+    def connectAllLayers(self) -> None:
+        consumer_layer : Layer = Economy.layers[ConsumerProduct]
+        processed_layer : Layer = Economy.layers[ConsumerProduct]
+        raw_layer : Layer = Economy.layers[ConsumerProduct]
+
+        raw_layer.connect(processed_layer)
+        processed_layer.connect(raw_layer)
+

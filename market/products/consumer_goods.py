@@ -17,5 +17,5 @@ class ConsumerProduct(Composite):
     def getLayerName(self) -> str:
         return "Consumer"
     
-    def getAll(self) -> dict:
+    def getAll(self) -> list:
         return self._existing

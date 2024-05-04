@@ -16,5 +16,5 @@ class RawMaterial(Product):
     def getLayerName(self) -> str:
         return "Raw"
     
-    def getAll(self) -> dict:
+    def getAll(self) -> list:
         return self._existing

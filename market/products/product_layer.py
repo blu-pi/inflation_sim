@@ -3,8 +3,7 @@
 class Layer:
     """Manages collections of Products."""
 
-    #TODO add arg for product type contained within layer
-    def __init__(self, layer_name : str, products : dict, parent_layer : 'Layer' = None) -> None:
+    def __init__(self, layer_name : str, products : list, parent_layer : 'Layer' = None) -> None:
         self.layer_name = layer_name
         self.products = products
         self.parent = parent_layer
@@ -12,6 +11,6 @@ class Layer:
     def setParentLayer(self, parent_layer : 'Layer') -> None:
         self.parent = parent_layer
 
-    def renameMember(self, member_name : str, new_name : str) -> None:
-        member = self.products[member_name]
-        member.setName(new_name)
+    def connect(self, parent : 'Layer') -> None:
+        pass
+        #TODO connection methodology

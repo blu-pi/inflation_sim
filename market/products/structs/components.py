@@ -11,12 +11,12 @@ class ComponentDict:
             assert(isinstance(prod, Product))
             self._components.update({prod : 1})
 
-    def changeWeight(self, product : Product, new_weight : float) -> None:
+    def changeWeight(self, target : Product, new_weight : float) -> None:
         assert(new_weight > 0)
-        if product not in self._components.keys():
+        if target not in self._components.keys():
             warnings.warn("Attempted to change weight of a product not found in component dict! Likely unwanted behaviour")
         else:
-            self._components[product] = new_weight
+            self._components[target] = new_weight
 
     def getAllComponents(self) -> list:
         return self._components.keys()
@@ -26,3 +26,6 @@ class ComponentDict:
     
     def getComponentLayers(self) -> list:
         return [prod.LAYER_NUM for prod in self.getComponents()]
+    
+    def contains(self, component : Product) -> bool:
+        return component in self._components.keys()

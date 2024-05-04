@@ -17,5 +17,5 @@ class ProcessedMaterial(Composite):
     def getLayerName(self) -> str:
         return "Processed"
     
-    def getAll(self) -> dict:
+    def getAll(self) -> list:
         return self._existing

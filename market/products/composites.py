@@ -1,3 +1,5 @@
+import warnings
+
 from market.products.base import Product
 from market.products.structs.components import ComponentDict
 
@@ -14,3 +16,6 @@ class Composite(Product):
     
     def setComponents(self, components : ComponentDict) -> None:
         self.components = components
+
+    def changeWeight(self, target : Product, new_weight : int) -> None:
+        self.components.changeWeight(target, new_weight)

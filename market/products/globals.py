@@ -17,6 +17,6 @@ class GlobalMaterial(Product):
     def getLayerName(self) -> str:
         return "Global"
     
-    def getAll(self) -> dict:
+    def getAll(self) -> list:
         return self._existing
         

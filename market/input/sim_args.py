@@ -10,9 +10,10 @@ class ArgDict(ABC):
 
 
 class SimArgs(ArgDict):
+    """Arguments to alter simulation environment"""
 
     DEFAULTS = {
-
+        "use_globals" : True
     }
 
     def __init__(self, args: dict):
@@ -20,6 +21,7 @@ class SimArgs(ArgDict):
 
 
 class ProductArgs(ArgDict):
+    """Arguments applied to all Products that are created"""
 
     DEFAULTS = {
         
@@ -30,6 +32,7 @@ class ProductArgs(ArgDict):
 
 
 class GlobalsArgs(ArgDict):
+    """Arguments applied only to 'GlobalMaterials'."""
 
     DEFAULTS = {
         "layer_size" : 2
@@ -40,6 +43,7 @@ class GlobalsArgs(ArgDict):
 
 
 class RawArgs(ArgDict):
+    """Arguments applied only to 'RawMaterials'."""
 
     DEFAULTS = {
         "layer_size" : 20,
@@ -51,6 +55,7 @@ class RawArgs(ArgDict):
 
 
 class CompositeArgs(ArgDict):
+    """Arguments applied to all products that inherit from 'Composite' as a product."""
 
     DEFAULTS = {
 
@@ -61,6 +66,7 @@ class CompositeArgs(ArgDict):
 
 
 class ProcessedArgs(ArgDict):
+    """Arguments applied only to 'ProcessedMaterials'."""
 
     DEFAULTS = {
         "layer_size" : 20
@@ -71,6 +77,7 @@ class ProcessedArgs(ArgDict):
 
 
 class ConsumerArgs(ArgDict):
+    """Arguments applied only to 'ConsumerMaterials'."""
 
     DEFAULTS = {
         "layer_size" : 20
