@@ -7,6 +7,7 @@ class GlobalMaterial(Product):
     LAYER_NUM = 0
     NAMES = ["Energy", "Labour"]
     _existing = []
+    class_args = None #args that apply to all class members, can be overriden by individual args
 
     def __init__(self, name : str = None, unit_cost : float = 0) -> None:
         super().__init__(name, unit_cost)
@@ -19,4 +20,7 @@ class GlobalMaterial(Product):
     
     def getAll(self) -> list:
         return self._existing
+
+    def getAllArgs(self) -> dict:
+        return super().getAllArgs() | self.class_args
         

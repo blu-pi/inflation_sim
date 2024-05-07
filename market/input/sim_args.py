@@ -24,7 +24,7 @@ class ProductArgs(ArgDict):
     """Arguments applied to all Products that are created"""
 
     DEFAULTS = {
-        
+
     }
 
     def __init__(self, args: dict):
@@ -58,7 +58,7 @@ class CompositeArgs(ArgDict):
     """Arguments applied to all products that inherit from 'Composite' as a product."""
 
     DEFAULTS = {
-
+        "num_preferred_components" : 4
     }
 
     def __init__(self, args: dict):

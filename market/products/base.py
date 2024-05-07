@@ -5,6 +5,7 @@ class Product:
 
     LAYER_NUM = 0
     total_created = 0
+    class_args = None #args that apply to all class members, can be overriden by individual args
 
     def __init__(self, name : str = None, unit_cost : float = 0) -> None:
         self.name = name
@@ -22,3 +23,6 @@ class Product:
 
     def hasComponents(self) -> bool:
         return False
+    
+    def getAllArgs(self) -> dict:
+        return self.class_args

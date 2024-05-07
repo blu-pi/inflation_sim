@@ -1,3 +1,5 @@
+from market.products.base import Product
+from market.products.composites import Composite
 from market.products.consumer_goods import ConsumerProduct
 from market.products.globals import GlobalMaterial
 from market.products.processed import ProcessedMaterial
@@ -17,12 +19,15 @@ class Economy:
     layers = LAYER_ARGS.copy()
 
     def __init__(self, sim_args, node_args) -> None:
-        
         self.sim_args = sim_args.conts
+        #setting args for abstracts
+        Product.class_args = node_args.conts["product_args"]
+        Composite.class_args = node_args.conts["composite_args"]
 
         for material_type, arg_key in Economy.LAYER_ARGS.items():
-            material_args = node_args[arg_key]
-            layer_size = material_args["layer_size"]
+            material_args = node_args.conts[arg_key]
+            layer_size = material_args.conts["layer_size"]
+            material_type.class_args = material_args
             for x in range(layer_size):
                 material_type.__init__()
             Economy.layers.update({material_type : Layer(material_type.getLayerName(), material_type.getAll())})
