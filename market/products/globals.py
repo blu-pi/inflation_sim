@@ -15,11 +15,13 @@ class GlobalMaterial(Product):
             self.setName(self.generateName())
         GlobalMaterial._existing.append(self)
 
-    def getLayerName(self) -> str:
+    @staticmethod
+    def getLayerName() -> str:
         return "Global"
     
-    def getAll(self) -> list:
-        return self._existing
+    @staticmethod
+    def getAll() -> list:
+        return GlobalMaterial._existing
 
     def getAllArgs(self) -> dict:
         return super().getAllArgs() | self.class_args

@@ -14,11 +14,13 @@ class RawMaterial(Product):
             self.setName(self.generateName())
         RawMaterial._existing.append(self)
     
-    def getLayerName(self) -> str:
+    @staticmethod
+    def getLayerName() -> str:
         return "Raw"
     
-    def getAll(self) -> list:
-        return self._existing
+    @staticmethod
+    def getAll() -> list:
+        return RawMaterial._existing
     
     def getAllArgs(self) -> dict:
         return super().getAllArgs() | self.class_args

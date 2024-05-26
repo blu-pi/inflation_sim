@@ -15,11 +15,13 @@ class ConsumerProduct(Composite):
             self.setName(self.generateName())
         ConsumerProduct._existing.append(self)
 
-    def getLayerName(self) -> str:
+    @staticmethod
+    def getLayerName() -> str:
         return "Consumer"
     
-    def getAll(self) -> list:
-        return self._existing
+    @staticmethod
+    def getAll() -> list:
+        return ConsumerProduct._existing
     
     def getAllArgs(self) -> dict:
         return super().getAllArgs() | self.class_args

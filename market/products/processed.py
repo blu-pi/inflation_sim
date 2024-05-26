@@ -15,11 +15,13 @@ class ProcessedMaterial(Composite):
             self.setName(self.generateName())
         ProcessedMaterial._existing.append(self)
 
-    def getLayerName(self) -> str:
+    @staticmethod
+    def getLayerName() -> str:
         return "Processed"
     
-    def getAll(self) -> list:
-        return self._existing
+    @staticmethod
+    def getAll() -> list:
+        return ProcessedMaterial._existing
     
     def getAllArgs(self) -> dict:
         return super().getAllArgs() | self.class_args

@@ -8,6 +8,7 @@ class ComponentDict:
     def __init__(self, *products : Product) -> None:
         self._components = {}
         for prod in products:
+            print(products) #DEBUG
             assert(isinstance(prod, Product))
             self._components.update({prod : 1})
 

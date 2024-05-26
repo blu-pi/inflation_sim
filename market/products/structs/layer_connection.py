@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 class Connection:
 
-    def __init__(self, child_layer : Layer, parent_layer : Layer) -> None:
+    def __init__(self, child_layer : 'Layer', parent_layer : 'Layer') -> None:
         self.parent_layer = parent_layer
         self.child_layer = child_layer
 
@@ -20,7 +20,7 @@ class Connection:
 class SymmetricalConnection(Connection):
     """A connection between 2 layers where each Product has the same (+-1) amount of connections."""
 
-    def __init__(self, child_layer: Layer, parent_layer: Layer, preferred_connections : int = 0) -> None:
+    def __init__(self, child_layer: 'Layer', parent_layer: 'Layer', preferred_connections : int = 0) -> None:
         super().__init__(child_layer, parent_layer)
         self.preferred_connections = preferred_connections
 
@@ -32,10 +32,11 @@ class SymmetricalConnection(Connection):
         if self.preferred_connections < min_connections:
             self.preferred_connections = min_connections
         
+        #TODO faulty
         target_products = {0 : self.parent_layer.products}
         for child_product in self.child_layer.products:
             components = []
-            for x in range(max(self.preferred_connections)):
+            for x in range(self.preferred_connections): #had a max clause why?
                 min_key = min(target_products.keys())
                 potential = target_products[min_key]
                 random.shuffle(potential)
