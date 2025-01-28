@@ -23,4 +23,4 @@ class Composite(Product):
         self.components.changeWeight(target, new_weight)
 
     def getAllArgs(self) -> dict:
-        return super().getAllArgs() | self.class_args
+        return super().getAllArgs() | Composite.class_args 

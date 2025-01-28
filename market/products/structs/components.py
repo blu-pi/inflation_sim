@@ -5,10 +5,12 @@ from market.products.base import Product
 class ComponentDict:
     """Structure representing 'ingredients' required for a Composite product."""
 
-    def __init__(self, *products : Product) -> None:
+    def __init__(self, products : Product) -> None:
+        #print(products)
         self._components = {}
         for prod in products:
-            print(products) #DEBUG
+            #print(prod) #DEBUG
+            #print(prod.__class__)
             assert(isinstance(prod, Product))
             self._components.update({prod : 1})
 

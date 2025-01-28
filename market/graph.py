@@ -14,6 +14,6 @@ class Graph:
         self._populate()
 
     def _populate(self) -> None:
-        self.nxg.add_nodes_from(self.consumer_layer)
+        self.nxg.add_nodes_from(self.consumer_layer.products)
         nx.draw(self.nxg, with_labels=True)
         plt.show()

@@ -25,4 +25,4 @@ class Product:
         return False
     
     def getAllArgs(self) -> dict:
-        return self.class_args
+        return Product.class_args

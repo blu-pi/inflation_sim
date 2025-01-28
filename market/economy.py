@@ -30,9 +30,11 @@ class Economy:
             material_args = node_args[arg_key].conts
             layer_size = material_args["layer_size"]
             material_type.class_args = material_args
+            #print("{} given args : {}".format(material_type, material_args)) #DEBUG
             for x in range(layer_size):
                 material_type()
             Economy.layers.update({material_type : Layer(material_type.getLayerName(), material_type.getAll())})
+            print("{} getAllArgs result: {}".format(material_type, material_type.getAll()[0].getAllArgs())) #DEBUG
 
         self.connectAllLayers()
         #MAKE PRODUCT OBJS
@@ -40,12 +42,13 @@ class Economy:
         #RUN SIM
 
     def connectAllLayers(self) -> None:
+        print("connecting layers") #DEBUG
         consumer_layer : Layer = Economy.layers[ConsumerProduct]
-        processed_layer : Layer = Economy.layers[ConsumerProduct]
-        raw_layer : Layer = Economy.layers[ConsumerProduct]
+        processed_layer : Layer = Economy.layers[ProcessedMaterial]
+        raw_layer : Layer = Economy.layers[RawMaterial]
 
-        raw_layer.connect(processed_layer)
-        processed_layer.connect(consumer_layer)
+        consumer_layer.connect(processed_layer)  
+        processed_layer.connect(raw_layer)
 
         logic_graph = Graph(consumer_layer)
 

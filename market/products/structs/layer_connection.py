@@ -23,6 +23,11 @@ class SymmetricalConnection(Connection):
     def __init__(self, child_layer: 'Layer', parent_layer: 'Layer', preferred_connections : int = 0) -> None:
         super().__init__(child_layer, parent_layer)
         self.preferred_connections = preferred_connections
+        parent_product = self.parent_layer.products[0]
+        child_product = self.child_layer.products[0]
+        if self.preferred_connections == 0:
+            #check num components argument from pre-defined arg dict tied to the Composite class.
+            self.preferred_connections = parent_product.getAllArgs()["num_preferred_components"]
 
         min_connections = 1
         if len(child_layer.products) < len(parent_layer.products):
@@ -33,17 +38,20 @@ class SymmetricalConnection(Connection):
             self.preferred_connections = min_connections
         
         #TODO faulty
-        target_products = {0 : self.parent_layer.products}
+        target_products = {0 : self.parent_layer.products.copy()}
         for child_product in self.child_layer.products:
             components = []
             for x in range(self.preferred_connections): #had a max clause why?
                 min_key = min(target_products.keys())
                 potential = target_products[min_key]
+                print(len(potential))
                 random.shuffle(potential)
                 chosen = potential.pop(0)
                 components.append(chosen)
+                #dont overwrite here #TODO
                 target_products.update({min_key + 1 : chosen})
                 if target_products[min_key] == []:
+                    print("happened")
                     del target_products[min_key]
             comp_dict = ComponentDict(components)
             child_product.setComponents(comp_dict)
