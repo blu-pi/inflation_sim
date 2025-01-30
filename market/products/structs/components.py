@@ -21,8 +21,8 @@ class ComponentDict:
         else:
             self._components[target] = new_weight
 
-    def getAllComponents(self) -> list:
-        return self._components.keys()
+    def getAll(self) -> list:
+        return list(self._components.keys())
     
     def getWeight(self, component) -> float:
         return self._components[component]

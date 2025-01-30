@@ -17,4 +17,7 @@ class Layer:
     def connect(self, parent : 'Layer') -> None:
         self.connection = SymmetricalConnection(self, parent)
         self.setParentLayer(parent)
+
+    def getSize(self) -> int:
+        return len(self.products)
     
