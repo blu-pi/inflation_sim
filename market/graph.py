@@ -41,4 +41,4 @@ class Graph:
             parent_layer = parent_layer.parent
 
         nx.draw(self.nxg, with_labels=True, pos=pos)
-        plt.show()
+        plt.show(block=False)

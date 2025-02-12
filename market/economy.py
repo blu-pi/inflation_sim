@@ -34,7 +34,6 @@ class Economy:
             for x in range(layer_size):
                 material_type()
             Economy.layers.update({material_type : Layer(material_type.getLayerName(), material_type.getAll())})
-            print("{} getAllArgs result: {}".format(material_type, material_type.getAll()[0].getAllArgs())) #DEBUG
 
         self.connectAllLayers()
         #MAKE PRODUCT OBJS
@@ -52,3 +51,14 @@ class Economy:
 
         logic_graph = Graph(consumer_layer)
 
+        while True:
+
+            consumer_num = int(input("Enter the number of a consumer to explore it's raw material composition: "))
+            if consumer_num > len(ConsumerProduct._existing):
+                print("Consumer number {} is bigger than possible ({}), using consumer0 instead!".format(consumer_num, len(ConsumerProduct._existing)))
+                consumer_num = 0
+            consumer : ConsumerProduct = ConsumerProduct._existing[consumer_num]
+            raw_comp = consumer.deriveRawMaterialComposition()
+            print(raw_comp)
+            print("Product composed of {} unique raw materials".format(len(raw_comp.keys())))
+            print("Total weight adds up to {}. (Should always be 1 or at least very close)".format(sum(raw_comp.values())))
