@@ -35,7 +35,7 @@ class ComponentDict:
         for product, weight in new.items():
             self.changeWeight(product, weight)
 
-    def getNormalisedWeights(self, use_fractions : bool = True) -> dict:
+    def getNormalisedWeights(self, use_fractions : bool = False) -> dict:
         """
         Return value is a dict and NOT a ComponentDict
         This is to ensure normalised values are never used outside of data analysis

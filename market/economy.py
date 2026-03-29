@@ -50,9 +50,12 @@ class Economy:
         processed_layer.connect(raw_layer)
 
         logic_graph = Graph(consumer_layer)
+        Economy.compositionTest() #maybe make optional for some testing
 
+    @staticmethod
+    def compositionTest():
+        """Basic analysis of consumer material composition. Will eventually be integrated with UI."""
         while True:
-
             consumer_num = int(input("Enter the number of a consumer to explore it's raw material composition: "))
             if consumer_num > len(ConsumerProduct._existing):
                 print("Consumer number {} is bigger than possible ({}), using consumer0 instead!".format(consumer_num, len(ConsumerProduct._existing)))

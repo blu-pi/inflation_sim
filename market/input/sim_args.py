@@ -13,7 +13,7 @@ class SimArgs(ArgDict):
     """Arguments to alter simulation environment"""
 
     DEFAULTS = {
-        "use_globals" : True #currently not implemented yet
+        "use_globals" : False #currently not implemented yet
     }
 
     def __init__(self, args: dict):
