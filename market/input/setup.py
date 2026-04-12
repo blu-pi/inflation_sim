@@ -108,19 +108,19 @@ class App:
         self.parent = parent
         self.sections = args
         #self.sections_str = sections_str
-        self.sections = {}
+        #self.sections = {}
         #self.columns = columns
 
         # i = 0
         # for column in self.columns:
         #     self.sections[sections_str[i]] = Section(self.parent, column, sections_str[i])
         #     i += 1
-
+        print(self.sections)
         i = 0
-        for section in self.sections.copy():
+        for section in self.sections:
             section_str = section[0]
             section_data = section[1]
-            self.sections[section_str[i]] = Section(self.parent, section_data, section_str)
+            self.sections[i] = (section_str, Section(self.parent, section_data, section_str))
             i += 1
 
     
@@ -196,6 +196,8 @@ class Section:
     # Make data entry buttons.
     def make_buttons(self, parent, column_names):
         self.factory = {}
+        column_names = column_names.conts
+        print(column_names)
         if isinstance(column_names,dict):
             #new functionality
             for key in column_names:
@@ -214,6 +216,7 @@ class Section:
         #     return tick_box(self.entrycont, colName)
         # return drop_down(self.entrycont, colName, entry_restrictions)
         default_type = type(default_value)
+        print(f"val: {default_value}, type: {default_type}")
         if default_type in [int, float, str]:
             return entry_field(self.entrycont, colName, default_value)
         if default_type == bool:
