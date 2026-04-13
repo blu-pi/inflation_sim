@@ -10,7 +10,11 @@ from market.products.raw_materials import RawMaterial
 
 
 class Economy:
+    """
+    Economy is synonym for Simulation. Responsible for top-level simulation management.
+    """
     #layer creation order: Globals, Raw, Processed, Consumer
+    #consider renaming
     LAYER_ARGS = {
         GlobalMaterial : "global_args",
         RawMaterial : "raw_args",

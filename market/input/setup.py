@@ -144,23 +144,16 @@ class App:
         #TODO else case? 
 
     def initSim(self) -> None:
-        #format global_output to be passable to Simulation constructor. 
-        #(Modifying key names)
-        #TODO modify to new values
-        App.global_output["parameters"] = App.global_output.pop("Simulation")
-        App.global_output["buyer_args"] = App.global_output.pop("Buyer")
-        App.global_output["seller_args"] = App.global_output.pop("Seller")
-        App.global_output["output_args"] = App.global_output.pop("Output")
-
+        #close input UI?
+        #TODO passing parameters needs cleanup + fix. Make standardised config class mayhaps?
         sim = Economy(**App.global_output)
     
     def getAllInput(self) -> list:
-        i = 0
-        for key in self.sections:
-            section = self.sections[key]
-            assert(isinstance(section, Section))
-            App.global_output.update({self.sections_str[i] : section.nextItem()}) 
-            i += 1
+        for section in self.sections:
+            section_str = section[0]
+            section_obj = section[1]
+            assert(isinstance(section_obj, Section))
+            App.global_output.update({section_str : section_obj.nextItem()}) 
         self.initSim()
 
 
@@ -228,7 +221,7 @@ class Section:
     def nextItem(self) -> dict:
         # get data from buttons
         data = {}
-        for colName in self.columns:
+        for colName in self.columns.conts:
             #data.append(self.factory[colName].value())
             val = self.factory[colName].value()
             if val not in ["",None]: #don't pass params that aren't needed.
