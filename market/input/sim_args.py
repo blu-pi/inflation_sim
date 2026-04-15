@@ -8,12 +8,16 @@ class ArgDict(ABC):
     def __init__(self, args : dict):
         self.conts = self.DEFAULTS.copy() | args
 
+    def joinConts(self, args : dict) -> 'ArgDict':
+        """Add all passed args to argdict. Overwrites existing values with new values when keys are identical."""
+        self.conts |= args
 
 class SimArgs(ArgDict):
     """Arguments to alter simulation environment"""
 
     DEFAULTS = {
-        "use_globals" : False #currently not implemented yet
+        "use_globals" : False, #currently not implemented yet
+        "run_composition_test" : False
     }
 
     def __init__(self, args: dict):

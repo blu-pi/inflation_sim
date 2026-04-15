@@ -6,6 +6,11 @@ from market.economy import Economy
 from tkinter import *
 from tkinter.ttk import *
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+   from market.input.sim_args import ArgDict
+
 #The original core code in this file is adapted from https://gist.github.com/cowlicks/21dd1b1938a9474f56cf
 #Obviously, many additions and modifications were made.
 
@@ -101,21 +106,13 @@ class tick_box:
 
 class App:
 
-    global_output = {} #ugly but honestly tkinter is ugly so idc >=/
+    user_input = {} #ugly but honestly tkinter is ugly so idc >=/
 
     def __init__(self, parent, args : list[tuple]) -> None:
         parent.winfo_toplevel().title("Parameter Input")
         self.parent = parent
-        self.sections = args
-        #self.sections_str = sections_str
-        #self.sections = {}
-        #self.columns = columns
-
-        # i = 0
-        # for column in self.columns:
-        #     self.sections[sections_str[i]] = Section(self.parent, column, sections_str[i])
-        #     i += 1
-        print(self.sections)
+        self.sections = args.copy()
+        self.default_args = args
         i = 0
         for section in self.sections:
             section_str = section[0]
@@ -134,6 +131,8 @@ class App:
         self.loadButton.pack(side = BOTTOM)
     
     def makeLoadScreen(self) -> None:
+        """Not implemented, WIP"""
+        #TODO adapt to new context and implement
         folder_selected = filedialog.askdirectory()
         if folder_selected != "":
             fileObj = open(folder_selected + '/args.obj', 'rb')
@@ -146,14 +145,22 @@ class App:
     def initSim(self) -> None:
         #close input UI?
         #TODO passing parameters needs cleanup + fix. Make standardised config class mayhaps?
-        sim = Economy(**App.global_output)
+        print(App.user_input)
+        for args in self.default_args:
+            key : str = args[0]
+            default_vals : ArgDict = args[1]
+            default_vals.joinConts(App.user_input[key])
+            final_vals = default_vals #for clarity
+            App.user_input[key] = final_vals
+        print(App.user_input)
+        sim = Economy(App.user_input)
     
     def getAllInput(self) -> list:
         for section in self.sections:
             section_str = section[0]
             section_obj = section[1]
             assert(isinstance(section_obj, Section))
-            App.global_output.update({section_str : section_obj.nextItem()}) 
+            App.user_input.update({section_str : section_obj.nextItem()}) 
         self.initSim()
 
 
