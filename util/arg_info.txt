@@ -1,0 +1,22 @@
+
+#section sim_args 
+#argument use_globals: "True/Flase, include global materials in simulation. Global materials are products used as components for every composite product. E.g. eletricity"
+#argument run_composition_test: "True/Flase, run CLI-based test allowing the user to probe the raw_material composition of consumer products once simulation is created."
+
+#section product_args
+
+#section composite_args
+#argument num_preferred_components: "Integer, target number of components required for making any composite product. Shared by ALL composites."
+
+#section global_args
+#argument layer_size: "Integer, total number of global materials to be used in the simulation. Will be ignored if *use_globals* is Flase."
+
+#section raw_args
+#argument layer_size: "Integer, total number of raw materials in the simulation. If *num_preferred_components* > this layer_size, expect problems."
+#argument units_avail: "Integer, starting fixed supply limit of raw materials for supply-side analysis. NOT YET IMPLEMENTED (does nothing)"
+
+#section processed_args
+#argument layer_size: "Integer, NOT YET IMPLEMENTED. Might, in future, allow for easy selection of uniform sizes for all composite products."
+
+#section consumer_args
+#argument layer_size: "Integer, total number of consumer products in the simulation."
