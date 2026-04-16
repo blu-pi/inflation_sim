@@ -16,8 +16,6 @@ if TYPE_CHECKING:
 #The original core code in this file is adapted from https://gist.github.com/cowlicks/21dd1b1938a9474f56cf
 #Obviously, many additions and modifications were made.
 
-#TODO totally broken right now. Needs to be fully adapted for current project.
-
 class InfoHandle:
 
     infoDict = {}
@@ -79,9 +77,6 @@ class entry_field:
             val = None
         return val
 
-    def hold(self):
-        print(self.colName)
-
 class drop_down:
     def __init__(self, parent, colName, default_value, section_name) -> None:
         self.restriction = default_value
@@ -103,9 +98,6 @@ class drop_down:
         self.holdButton = Button(self.frame, command = lambda:InfoHandle.showInfo(section_name,colName))
         self.holdButton.configure(text = 'Info')
         self.holdButton.pack(side = RIGHT)
-    
-    def hold(self):
-        print('derp') 
 
 class tick_box:
     def __init__(self, parent, colName, section_name) -> None:
@@ -124,9 +116,6 @@ class tick_box:
         self.holdButton = Button(self.frame, command = lambda:InfoHandle.showInfo(section_name,colName))
         self.holdButton.configure(text = 'Info')
         self.holdButton.pack(side = RIGHT)
-    
-    def hold(self):
-        print('derp') 
 
 class App:
 
@@ -169,15 +158,12 @@ class App:
 
     def initSim(self) -> None:
         #close input UI?
-        #TODO passing parameters needs cleanup + fix. Make standardised config class mayhaps?
-        print(App.user_input)
         for args in self.default_args:
             key : str = args[0]
             default_vals : ArgDict = args[1]
             default_vals.joinConts(App.user_input[key])
             final_vals = default_vals #for clarity
             App.user_input[key] = final_vals
-        print(App.user_input)
         sim = Economy(App.user_input)
     
     def getAllInput(self) -> list:
@@ -222,7 +208,6 @@ class Section:
     def make_buttons(self, parent, column_names):
         self.factory = {}
         column_names = column_names.conts
-        print(column_names)
         if isinstance(column_names,dict):
             #new functionality
             for key in column_names:
@@ -241,7 +226,6 @@ class Section:
         #     return tick_box(self.entrycont, colName)
         # return drop_down(self.entrycont, colName, entry_restrictions)
         default_type = type(default_value)
-        print(f"val: {default_value}, type: {default_type}")
         if default_type in [int, float, str]:
             return entry_field(self.entrycont, colName, default_value, self.title)
         if default_type == bool:

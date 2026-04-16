@@ -16,7 +16,7 @@
 #argument units_avail: "Integer, starting fixed supply limit of raw materials for supply-side analysis. NOT YET IMPLEMENTED (does nothing)"
 
 #section processed_args
-#argument layer_size: "Integer, NOT YET IMPLEMENTED. Might, in future, allow for easy selection of uniform sizes for all composite products."
+#argument layer_size: "Integer, total number of processed materials to be used in the simulation."
 
 #section consumer_args
 #argument layer_size: "Integer, total number of consumer products in the simulation."
