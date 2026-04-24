@@ -35,7 +35,7 @@ class Product:
     
     def getDisplayName(self) -> str:
         return "{}: {}".format(self.getLayerName(), self.getId())
-    
+
     #experimental
     def __repr__(self) -> str:
         return self.getDisplayName()

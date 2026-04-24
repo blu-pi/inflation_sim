@@ -9,7 +9,7 @@ class GlobalMaterial(Product):
     _existing = []
     class_args = None #args that apply to all class members, can be overriden by individual args
 
-    def __init__(self, name : str = None, unit_cost : float = 0) -> None:
+    def __init__(self, name : str = None, unit_cost : float = 0, **kwargs) -> None:
         super().__init__(name, unit_cost)
         if name is None:
             self.setName(self.generateName())

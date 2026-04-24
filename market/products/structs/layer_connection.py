@@ -29,13 +29,13 @@ class SymmetricalConnection(Connection):
         self.preferred_connections = preferred_connections
 
         parent_product = self.parent_layer.products[0]
-        child_product = self.child_layer.products[0]
+        child_product = self.child_layer.products[0] #child is always the composite
 
         if self.preferred_connections == 0:
             #check num components argument from pre-defined arg dict tied to the Composite class.
             #This is essentially the hard coded default value found in sim_args.py unless changed by user in input UI
             #(value of num_preferred_components gets overwritten)
-            self.preferred_connections = child_product.getAllArgs()["num_preferred_components"] #I know it's ugly but it works
+            self.preferred_connections = child_product.num_preferred_components
             #change to find connection from composite
 
         #find min_connections for legal SymmetricalConnection

@@ -9,9 +9,10 @@ class Composite(Product):
 
     class_args = None #args that apply to all class members, can be overriden by individual args
 
-    def __init__(self, name: str = None, unit_cost: float = 0, components : ComponentDict = None) -> None:
+    def __init__(self, name: str = None, unit_cost: float = 0, num_preferred_components : int = 0, components : ComponentDict = None, **kwargs) -> None:
         super().__init__(name, unit_cost)
         self.components = components
+        self.num_preferred_components = num_preferred_components
 
     def hasComponents(self) -> bool:
         return self.components is not None

@@ -6,7 +6,6 @@
 #section product_args
 
 #section composite_args
-#argument num_preferred_components: "Integer, target number of components required for making any composite product. Shared by ALL composites."
 
 #section global_args
 #argument layer_size: "Integer, total number of global materials to be used in the simulation. Will be ignored if *use_globals* is Flase."
@@ -17,6 +16,8 @@
 
 #section processed_args
 #argument layer_size: "Integer, total number of processed materials to be used in the simulation."
+#argument num_preferred_components: "Integer, target number of components required for making any processed product. Shared by ALL composites."
 
 #section consumer_args
 #argument layer_size: "Integer, total number of consumer products in the simulation."
+#argument num_preferred_components: "Integer, target number of components required for making any consumer product. Shared by ALL composites."

@@ -51,6 +51,7 @@ class RawArgs(ArgDict):
 
     DEFAULTS = {
         "layer_size" : 20,
+        "unit_cost" : 10,
         "units_avail" : 100
     }
 
@@ -62,7 +63,7 @@ class CompositeArgs(ArgDict):
     """Arguments applied to all products that inherit from 'Composite' as a product."""
 
     DEFAULTS = {
-        "num_preferred_components" : 4
+
     }
 
     def __init__(self, args: dict):
@@ -73,7 +74,8 @@ class ProcessedArgs(ArgDict):
     """Arguments applied only to 'ProcessedMaterials'."""
 
     DEFAULTS = {
-        "layer_size" : 20
+        "layer_size" : 20,
+        "num_preferred_components" : 4
     }
 
     def __init__(self, args: dict):
@@ -84,7 +86,8 @@ class ConsumerArgs(ArgDict):
     """Arguments applied only to 'ConsumerMaterials'."""
 
     DEFAULTS = {
-        "layer_size" : 20
+        "layer_size" : 20,
+        "num_preferred_components" : 4
     }
 
     def __init__(self, args: dict):

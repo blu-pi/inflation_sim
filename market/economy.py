@@ -10,9 +10,6 @@ from market.products.processed import ProcessedMaterial
 from market.products.product_layer import Layer
 from market.products.raw_materials import RawMaterial
 
-if TYPE_CHECKING:
-   from market.input.sim_args import ArgDict
-
 
 class Economy:
     """
@@ -30,9 +27,9 @@ class Economy:
 
     layers = LAYER_ARGS.copy()
 
-    def __init__(self, arg_dicts : dict['ArgDict']) -> None:
+    def __init__(self, arg_dicts : dict) -> None:
         self.sim_args = arg_dicts["sim_args"].conts
-        #setting args for abstracts
+        #setting args for abstracts - eventually change to append to relevant instanciated product args dict.
         Product.class_args = arg_dicts["product_args"].conts
         Composite.class_args = arg_dicts["composite_args"].conts
         self.createLayers(arg_dicts)
@@ -46,10 +43,10 @@ class Economy:
         for material_type, arg_key in Economy.LAYER_ARGS.items():
             material_args = node_args[arg_key].conts
             layer_size = material_args["layer_size"]
-            material_type.class_args = material_args
+            material_type.class_args = material_args #TESTING
             #print("{} given args : {}".format(material_type, material_args)) #DEBUG
             for x in range(layer_size):
-                material_type() #mutable type constructor call. Feels sketchy
+                material_type(**material_args) #mutable type constructor call. Feels sketchy
             Economy.layers.update({material_type : Layer(material_type.getLayerName(), material_type.getAll())})
             #Replace values stored in class attr. so it stores created Layer objs.
 
