@@ -1,10 +1,12 @@
 import pickle
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from typing import Union
 
 from market.economy import Economy
+
 from tkinter import *
 from tkinter.ttk import *
+import os
 
 from typing import TYPE_CHECKING
 
@@ -14,18 +16,38 @@ if TYPE_CHECKING:
 #The original core code in this file is adapted from https://gist.github.com/cowlicks/21dd1b1938a9474f56cf
 #Obviously, many additions and modifications were made.
 
-#TODO totally broken right now. Needs to be fully adapted for current project.
+class InfoHandle:
 
-class info_window:
+    infoDict = {}
 
-    def __init__(self, text) -> None:
-        pass #TODO complete (low priority)
+    @staticmethod
+    def readInfoFile() -> None:
+        print(os.getcwd())
+        info_file = open("util/arg_info.txt")
+        section_title = None
+        for line in info_file:
+            if "#section" in line:
+                section_title = line.split()[-1]
+                InfoHandle.infoDict.update({section_title : {}})
+            elif "#argument" in line:
+                temp = line.replace("#argument","").strip().split(":")
+                arg_name = temp[0]
+                arg_desc = temp[1]
+                InfoHandle.infoDict[section_title].update({arg_name : arg_desc})
+        info_file.close()
+    
+    @staticmethod
+    def showInfo(section_name, arg_name):
+        arg_desc = InfoHandle.infoDict[section_name][arg_name]
+        title = f"{section_name}, {arg_name} description"
+        messagebox.showinfo(title=title, message=arg_desc)
 
 class entry_field:
-    def __init__(self, parent, colName, default = None):
+    def __init__(self, parent, colName, default, section_name):
 
         self.default = default
         self.restriction = type(default)
+        self.colName = colName
 
         self.frame = Frame(parent)
         self.frame.pack(side = TOP)
@@ -44,7 +66,7 @@ class entry_field:
         else:
             self.value = lambda : self.entry.get() #unrestricted string
 
-        self.holdButton = Button(self.frame, command = self.hold)
+        self.holdButton = Button(self.frame, command = lambda:InfoHandle.showInfo(section_name,colName))
         self.holdButton.configure(text = 'Info')
         self.holdButton.pack(side = RIGHT)
 
@@ -55,11 +77,8 @@ class entry_field:
             val = None
         return val
 
-    def hold(self):
-        print('derp')
-
 class drop_down:
-    def __init__(self, parent, colName, default_value) -> None:
+    def __init__(self, parent, colName, default_value, section_name) -> None:
         self.restriction = default_value
 
         self.frame = Frame(parent)
@@ -76,15 +95,12 @@ class drop_down:
         self.option_menu.pack(side = LEFT)
         self.value = lambda : self.variable.get()
 
-        self.holdButton = Button(self.frame, command = self.hold)
+        self.holdButton = Button(self.frame, command = lambda:InfoHandle.showInfo(section_name,colName))
         self.holdButton.configure(text = 'Info')
         self.holdButton.pack(side = RIGHT)
-    
-    def hold(self):
-        print('derp') 
 
 class tick_box:
-    def __init__(self, parent, colName) -> None:
+    def __init__(self, parent, colName, section_name) -> None:
         self.frame = Frame(parent)
         self.frame.pack(side = TOP)
         
@@ -97,12 +113,9 @@ class tick_box:
         self.check_button.pack(side = LEFT)
         self.value = lambda : var.get()
 
-        self.holdButton = Button(self.frame, command = self.hold)
+        self.holdButton = Button(self.frame, command = lambda:InfoHandle.showInfo(section_name,colName))
         self.holdButton.configure(text = 'Info')
         self.holdButton.pack(side = RIGHT)
-    
-    def hold(self):
-        print('derp') 
 
 class App:
 
@@ -110,6 +123,7 @@ class App:
 
     def __init__(self, parent, args : list[tuple]) -> None:
         parent.winfo_toplevel().title("Parameter Input")
+        InfoHandle.readInfoFile()
         self.parent = parent
         self.sections = args.copy()
         self.default_args = args
@@ -144,15 +158,12 @@ class App:
 
     def initSim(self) -> None:
         #close input UI?
-        #TODO passing parameters needs cleanup + fix. Make standardised config class mayhaps?
-        print(App.user_input)
         for args in self.default_args:
             key : str = args[0]
             default_vals : ArgDict = args[1]
             default_vals.joinConts(App.user_input[key])
             final_vals = default_vals #for clarity
             App.user_input[key] = final_vals
-        print(App.user_input)
         sim = Economy(App.user_input)
     
     def getAllInput(self) -> list:
@@ -168,7 +179,7 @@ class Section:
     def __init__(self, parent, columns, title):
         self.myParent = parent
         self.columns = columns
-        self.title = title + " arguments:"
+        self.title = title
         #self.colNames = get_colNames(COLUMNS)
 
         self.Container = Frame(parent)
@@ -197,7 +208,6 @@ class Section:
     def make_buttons(self, parent, column_names):
         self.factory = {}
         column_names = column_names.conts
-        print(column_names)
         if isinstance(column_names,dict):
             #new functionality
             for key in column_names:
@@ -216,13 +226,12 @@ class Section:
         #     return tick_box(self.entrycont, colName)
         # return drop_down(self.entrycont, colName, entry_restrictions)
         default_type = type(default_value)
-        print(f"val: {default_value}, type: {default_type}")
         if default_type in [int, float, str]:
-            return entry_field(self.entrycont, colName, default_value)
+            return entry_field(self.entrycont, colName, default_value, self.title)
         if default_type == bool:
-            return tick_box(self.entrycont, colName)
+            return tick_box(self.entrycont, colName, self.title)
         if default_type == list:
-            return drop_down(self.entrycont, colName, default_value)
+            return drop_down(self.entrycont, colName, default_value, self.title)
 
     # Next button handeler.
     def nextItem(self) -> dict:

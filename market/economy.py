@@ -37,7 +37,9 @@ class Economy:
         Composite.class_args = arg_dicts["composite_args"].conts
         self.createLayers(arg_dicts)
         self.connectAllLayers()
-        print(self.sim_args)
+        
+        Economy.show_simulation_graph(self.layers[ConsumerProduct])
+
         if self.sim_args["run_composition_test"]:
             Economy.compositionTest() #maybe make optional for some testing
 
@@ -70,6 +72,37 @@ class Economy:
         processed_layer.connect(raw_layer)
 
         logic_graph = Graph(consumer_layer)
+
+    @staticmethod
+    def show_simulation_graph(consumer_layer):
+        """Display the graph in a Tkinter window"""
+        import tkinter as tk
+        # Create the graph
+        graph = Graph(consumer_layer)
+        
+        # Create a Tkinter window
+        window = tk.Tk()
+        window.title("Product Layer Graph - Interactive View")
+        window.geometry("1200x800")
+        
+        # Create the interactive display
+        display = graph.get_interactive_display(window)
+        
+        # Add a status bar (optional)
+        status_bar = tk.Label(
+            window, 
+            text="Click on any node to see details. Use toolbar to zoom/pan.",
+            bd=1, relief=tk.SUNKEN, anchor=tk.W
+        )
+        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Cleanup on window close
+        def on_closing():
+            display.cleanup()
+            window.destroy()
+        
+        window.protocol("WM_DELETE_WINDOW", on_closing)
+        window.mainloop()
 
     @staticmethod
     def compositionTest():

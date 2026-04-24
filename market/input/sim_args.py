@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-#not really necessary 
+#REMINDER, CHANGE HERE = CHANGE IN ARG_INFO.TXT 
 class ArgDict(ABC):
 
     DEFAULTS = {}
