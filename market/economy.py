@@ -37,11 +37,6 @@ class Economy:
         Composite.class_args = arg_dicts["composite_args"].conts
         self.createLayers(arg_dicts)
         self.connectAllLayers()
-        
-        Economy.show_simulation_graph(self.layers[ConsumerProduct])
-
-        if self.sim_args["run_composition_test"]:
-            Economy.compositionTest() #maybe make optional for some testing
 
     def createLayers(self, node_args) -> None:
         """
@@ -68,10 +63,10 @@ class Economy:
         processed_layer : Layer = Economy.layers[ProcessedMaterial]
         raw_layer : Layer = Economy.layers[RawMaterial]
 
-        consumer_layer.connect(processed_layer)  
+        consumer_layer.connect(processed_layer)
         processed_layer.connect(raw_layer)
 
-        logic_graph = Graph(consumer_layer)
+        self.graph = Graph(consumer_layer)
 
     @staticmethod
     def show_simulation_graph(consumer_layer):

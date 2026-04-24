@@ -1,0 +1,197 @@
+import json
+import os
+import sys
+import threading
+import webbrowser
+
+from flask import Flask, jsonify, redirect, render_template, request, url_for
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from market.economy import Economy
+from market.graph import Graph
+from market.input.sim_args import (
+    CompositeArgs, ConsumerArgs, GlobalsArgs,
+    ProcessedArgs, ProductArgs, RawArgs, SimArgs,
+)
+from market.products.base import Product
+from market.products.consumer_goods import ConsumerProduct
+from market.products.globals import GlobalMaterial
+from market.products.processed import ProcessedMaterial
+from market.products.raw_materials import RawMaterial
+
+app = Flask(__name__)
+
+_graph_json: str | None = None
+_node_map: dict = {}
+
+ARG_CLASSES: list[tuple] = [
+    ('sim_args',       SimArgs),
+    ('product_args',   ProductArgs),
+    ('composite_args', CompositeArgs),
+    ('global_args',    GlobalsArgs),
+    ('raw_args',       RawArgs),
+    ('processed_args', ProcessedArgs),
+    ('consumer_args',  ConsumerArgs),
+]
+
+
+def _load_arg_info() -> dict:
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'util', 'arg_info.txt',
+    )
+    info: dict = {}
+    with open(path) as f:
+        section = None
+        for line in f:
+            line = line.strip()
+            if '#section' in line:
+                section = line.split()[-1]
+                info[section] = {}
+            elif '#argument' in line and section:
+                parts = line.replace('#argument', '').strip().split(':', 1)
+                if len(parts) == 2:
+                    info[section][parts[0].strip()] = parts[1].strip()
+    return info
+
+
+ARG_INFO = _load_arg_info()
+
+
+def _serialize_graph(graph: Graph) -> tuple[str, dict]:
+    node_map: dict = {}
+    nodes: list = []
+    edges: list = []
+    layer_groups = {0: 'global', 1: 'raw', 2: 'processed', 3: 'consumer'}
+
+    for product in graph.nxg.nodes():
+        nid = product.getDisplayName()
+        node_map[nid] = product
+        nodes.append({
+            'id': nid,
+            'label': nid,
+            'group': layer_groups.get(product.LAYER_NUM, 'unknown'),
+            'level': 4 - product.LAYER_NUM,  # consumer→top (1), raw→bottom (3)
+        })
+
+    for src, dst in graph.nxg.edges():
+        sid, did = src.getDisplayName(), dst.getDisplayName()
+        edges.append({'id': f'{sid}->{did}', 'from': sid, 'to': did})
+
+    return json.dumps({'nodes': nodes, 'edges': edges}), node_map
+
+
+def _reset_products() -> None:
+    for cls in (RawMaterial, ProcessedMaterial, ConsumerProduct, GlobalMaterial):
+        cls._existing.clear()
+    Product.total_created = 0
+    Economy.layers = Economy.LAYER_ARGS.copy()
+
+
+def _coerce(val: str, default):
+    target = type(default)
+    try:
+        return target(val)
+    except (ValueError, TypeError):
+        return default
+
+
+@app.route('/')
+def index():
+    sections = []
+    for key, cls in ARG_CLASSES:
+        instance = cls({})
+        if not instance.conts:
+            continue
+        fields = []
+        for field_name, default in instance.conts.items():
+            fields.append({
+                'name': field_name,
+                'form_name': f'{key}.{field_name}',
+                'default': default,
+                'type': type(default).__name__,
+                'tooltip': ARG_INFO.get(key, {}).get(field_name, ''),
+            })
+        sections.append({
+            'key': key,
+            'title': key.replace('_', ' ').title(),
+            'fields': fields,
+        })
+    return render_template('index.html', sections=sections)
+
+
+@app.route('/run', methods=['POST'])
+def run_simulation():
+    global _graph_json, _node_map
+    _reset_products()
+
+    form = request.form
+    arg_dicts: dict = {}
+    for key, cls in ARG_CLASSES:
+        defaults = cls({}).conts
+        user_input: dict = {}
+        for field, default in defaults.items():
+            form_key = f'{key}.{field}'
+            if type(default) is bool:
+                user_input[field] = form_key in form  # checkbox: present=True, absent=False
+            elif form_key in form and form[form_key] != '':
+                user_input[field] = _coerce(form[form_key], default)
+        arg_dicts[key] = cls(user_input)
+
+    economy = Economy(arg_dicts)
+    _graph_json, _node_map = _serialize_graph(economy.graph)
+    return redirect(url_for('simulation'))
+
+
+@app.route('/simulation')
+def simulation():
+    if _graph_json is None:
+        return redirect(url_for('index'))
+    return render_template('simulation.html')
+
+
+@app.route('/api/graph')
+def api_graph():
+    if _graph_json is None:
+        return jsonify({'error': 'No simulation running'}), 404
+    return _graph_json, 200, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/node/<path:node_id>')
+def api_node(node_id):
+    product = _node_map.get(node_id)
+    if product is None:
+        return jsonify({'error': 'Not found'}), 404
+
+    layer_names = {0: 'Global', 1: 'Raw Material', 2: 'Processed Material', 3: 'Consumer Product'}
+    info = {
+        'name': product.name,
+        'layer': layer_names.get(product.LAYER_NUM, f'Layer {product.LAYER_NUM}'),
+        'id': product.getId(),
+        'unit_cost': product.unit_cost,
+    }
+
+    if isinstance(product, RawMaterial):
+        info['units_avail'] = product.units_avail
+
+    if product.hasComponents():
+        weights = product.components.getNormalisedWeights()
+        info['num_components'] = len(weights)
+        info['components'] = {
+            c.getDisplayName(): round(w, 4) for c, w in weights.items()
+        }
+
+    if isinstance(product, ConsumerProduct):
+        raw_comp = product.deriveRawMaterialComposition()
+        info['raw_composition'] = {
+            c.getDisplayName(): round(w, 4) for c, w in raw_comp.items()
+        }
+
+    return jsonify(info)
+
+
+def start(host='127.0.0.1', port=5000):
+    print(f'Starting simulation server at http://{host}:{port}')
+    threading.Timer(1.0, lambda: webbrowser.open(f'http://{host}:{port}')).start()
+    app.run(host=host, port=port, debug=False, use_reloader=False)

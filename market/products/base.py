@@ -18,7 +18,7 @@ class Product:
         self.name = new_name
 
     def generateName(self) -> str:
-        return self.getLayerName() + str(self.total_created)
+        return self.getLayerName() + str(self._id)
     
     def setUnitCost(self, cost : float) -> None:
         self.unit_cost = cost
