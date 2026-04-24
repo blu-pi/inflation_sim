@@ -39,7 +39,7 @@ class ComponentDict:
         """
         Return value is a dict and NOT a ComponentDict
         This is to ensure normalised values are never used outside of data analysis
-        Essentially a product's assigned Component list should never return normalised weights
+        Essentially a product's assigned Component list should always returns absolute weights - not relative/normalised ones.
         """
         weight_total = sum(self._components.values())
         if weight_total != 1:
@@ -54,7 +54,14 @@ class ComponentDict:
         #small optimisation possible for potentially large ._contents dicts. Not significant for values <100 for sure.
         weights = {self._components.values()}
         return len(weights) == 1
+    
+    def getTotalCost(self) -> float:
+        total = 0
+        for product, weight in self._components.items():
+            total += product.unit_cost * weight
+        return total
 
+    #potential rename to for clarity?
     def getDict(self) -> dict[Product : float]:
         return self._components
 

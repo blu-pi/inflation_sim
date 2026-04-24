@@ -23,5 +23,11 @@ class Composite(Product):
     def changeWeight(self, target : Product, new_weight : int) -> None:
         self.components.changeWeight(target, new_weight)
 
+    def getComponentCost(self) -> float:
+        if self.components is None:
+            warnings.warn("{} has no components. Returning 0.".format(self.getDisplayName()))
+            return 0
+        return self.components.getTotalCost()
+
     def getAllArgs(self) -> dict:
         return super().getAllArgs() | Composite.class_args 
