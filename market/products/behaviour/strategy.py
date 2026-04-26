@@ -1,0 +1,2 @@
+#Placeholder file for strategy behaviour of products. Not yet implemented.
+#Will eventually consist of a combination of demand and supply behaviours connected to a product object. Might eventually contain methods for adapting behaviour over time.

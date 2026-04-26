@@ -8,7 +8,11 @@ class Product:
     class_args = None #args that apply to all class members, can be overriden by individual args
 
     def __init__(self, name : str = None, unit_cost : float = 0) -> None:
-        """Should never be called explicitly. Only through constructor of child Classes"""
+        """
+        Should never be called explicitly. Only through constructor of child Classes.
+        - name : str - display name of product. If None, will be generated based on layer and id.
+        - unit_cost : float - arbitrary base cost of product independent of all other factors.
+        """
         self.name = name
         self.unit_cost = unit_cost
         self._id = len(self._existing)
@@ -22,6 +26,16 @@ class Product:
     
     def setUnitCost(self, cost : float) -> None:
         self.unit_cost = cost
+
+    def findTotalCost(self) -> float:
+        """Calculates actual total cost of production includeing all potential factors.
+        total_cost = unit_cost + component_cost + cost of global products (Not yet implemented).
+        """
+        total_cost : float = self.unit_cost
+        if self.hasComponents():
+            total_cost += self.getComponentCost()
+        #global product costs not implemented yet, but would be added here.
+        return total_cost
 
     def hasComponents(self) -> bool:
         return False
