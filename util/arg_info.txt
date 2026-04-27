@@ -12,6 +12,7 @@
 
 #section raw_args
 #argument layer_size: "Integer, total number of raw materials in the simulation. If *num_preferred_components* > this layer_size, expect problems."
+#argument infinite_supply : "True/False, Should there be an infinite amount of raw materials. If True then 'units_avail' will not be used in any way."
 #argument units_avail: "Integer, starting fixed supply limit of raw materials for supply-side analysis. NOT YET IMPLEMENTED (does nothing)"
 
 #section processed_args

@@ -1,4 +1,4 @@
-
+from market.products.behaviour.strategy import Strategy, SimpleStrategy, AdaptiveStrategy
 
 class Product:
     """Essentially abstract."""
@@ -7,16 +7,22 @@ class Product:
     total_created = 0
     class_args = None #args that apply to all class members, can be overriden by individual args
 
-    def __init__(self, name : str = None, unit_cost : float = 0) -> None:
+    def __init__(self, name : str = None, unit_cost : float = 0, strategy : Strategy = None) -> None:
         """
         Should never be called explicitly. Only through constructor of child Classes.
         - name : str - display name of product. If None, will be generated based on layer and id.
         - unit_cost : float - arbitrary base cost of product independent of all other factors.
+        - strategy : Strategy (StaticStrategy or AdaptiveStrategy) - strategy that this product will follow in terms of supply and demand behaviour.
         """
         self.name = name
         self.unit_cost = unit_cost
+        self.setStrategy(strategy)
         self._id = len(self._existing)
         Product.total_created += 1
+    
+    def setStrategy(self, strategy : Strategy) -> None:
+        """Use default (SimpleStrategy) if no strategy provided."""
+        self.strategy = SimpleStrategy(self) if strategy is None else strategy
 
     def setName(self, new_name : str) -> None:
         self.name = new_name

@@ -58,7 +58,7 @@ class ComponentDict:
     def getTotalCost(self) -> float:
         total = 0
         for product, weight in self._components.items():
-            total += product.unit_cost * weight
+            total += product.unit_cost * weight #TODO not unit cost, supply behaviour calculated price!
         return total
 
     #potential rename to for clarity?

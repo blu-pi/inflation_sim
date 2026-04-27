@@ -7,9 +7,10 @@ class RawMaterial(Product):
     _existing = []
     class_args = None #args that apply to all class members, can be overriden by individual args
 
-    def __init__(self, name : str = None, unit_cost : float = 0, units_avail : int = 0, **kwargs) -> None:
+    def __init__(self, name : str = None, unit_cost : float = 0, units_avail : int = 0, infinite_supply : bool = True, **kwargs) -> None:
         super().__init__(name, unit_cost)
         self.units_avail = units_avail
+        self.infinite_supply = infinite_supply
         if self.name is None:
             self.setName(self.generateName())
         RawMaterial._existing.append(self)

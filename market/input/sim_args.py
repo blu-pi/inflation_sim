@@ -52,6 +52,7 @@ class RawArgs(ArgDict):
     DEFAULTS = {
         "layer_size" : 20,
         "unit_cost" : 10,
+        "infinite_supply" : True,
         "units_avail" : 100
     }
 

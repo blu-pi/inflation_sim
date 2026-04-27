@@ -13,7 +13,7 @@ from market.products.raw_materials import RawMaterial
 
 class Economy:
     """
-    Economy is synonym for Simulation. Responsible for top-level simulation management.
+    The creator and manager of the economy. Responsible for creating products, organising them into layers, and connecting them together to create a supply chain.
     """
     #layer creation order: Globals, Raw, Processed, Consumer
     #consider renaming
@@ -23,7 +23,7 @@ class Economy:
         ProcessedMaterial : "processed_args",
         ConsumerProduct : "consumer_args"
     }
-    #Dictionaries don't preserve ordering for keys anymore so this doesn't actually hardcode creation order.
+    #Dictionaries do preserve insertion order so this is fine. Will be used to create layers in correct order and assign args to correct product types.
 
     layers = LAYER_ARGS.copy()
 
@@ -67,7 +67,7 @@ class Economy:
 
     @staticmethod
     def show_simulation_graph(consumer_layer):
-        """Display the graph in a Tkinter window"""
+        """Display the graph in a Tkinter window. (Depricated)"""
         import tkinter as tk
         # Create the graph
         graph = Graph(consumer_layer)
