@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inflation Simulation — Graph</title>
     <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -125,6 +126,14 @@
             margin-bottom: 8px;
         }
 
+        .section-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .section-title-row h4 { margin-bottom: 0; }
+
         .comp-item {
             display: flex;
             align-items: center;
@@ -219,6 +228,124 @@
             width: 9px;
             height: 9px;
             border-radius: 50%;
+        }
+
+        /* --- Pie chart styles --- */
+
+        .btn-xs {
+            padding: 2px 7px;
+            font-size: 0.67rem;
+            border-radius: 3px;
+            border: 1px solid #3a3a5e;
+            background: transparent;
+            color: #a7a9be;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            line-height: 1.4;
+        }
+        .btn-xs:hover { background: #2a2a4e; color: #fffffe; }
+        .btn-xs.active { background: #2e3461; color: #c5cae9; border-color: #5c6bc0; }
+
+        .pie-container {
+            margin-top: 8px;
+            padding: 10px;
+            background: #111128;
+            border-radius: 5px;
+            border: 1px solid #222244;
+        }
+
+        .pie-canvas-wrap {
+            position: relative;
+            height: 185px;
+        }
+
+        .weight-editor {
+            margin-top: 8px;
+            max-height: 130px;
+            overflow-y: auto;
+        }
+        .weight-editor::-webkit-scrollbar { width: 3px; }
+        .weight-editor::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+        .weight-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 0;
+            border-bottom: 1px solid #1a1a30;
+            font-size: 0.71rem;
+        }
+
+        .pie-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .weight-label {
+            flex: 1;
+            color: #c0c0d8;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .weight-input {
+            width: 62px;
+            padding: 2px 5px;
+            background: #1a1a30;
+            border: 1px solid #3a3a5e;
+            border-radius: 3px;
+            color: #fffffe;
+            font-size: 0.71rem;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .weight-input:focus { outline: none; border-color: #7986cb; }
+
+        .pie-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            justify-content: flex-end;
+        }
+
+        .apply-btn {
+            padding: 3px 11px;
+            font-size: 0.71rem;
+            border-radius: 3px;
+            border: 1px solid #5c6bc0;
+            background: #3949ab;
+            color: #e8eaf6;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .apply-btn:hover { background: #4a5abc; }
+        .apply-btn:disabled { opacity: 0.6; cursor: default; }
+
+        .cancel-btn {
+            padding: 3px 11px;
+            font-size: 0.71rem;
+            border-radius: 3px;
+            border: 1px solid #3a3a5e;
+            background: transparent;
+            color: #a7a9be;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .cancel-btn:hover { background: #2a2a4e; color: #fffffe; }
+
+        .pie-legend-list { margin-top: 6px; }
+
+        .pie-legend-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 0;
+            font-size: 0.70rem;
+            color: #c0c0d8;
         }
     </style>
 </head>
@@ -321,6 +448,7 @@
                         zoomView: true,
                         dragView: true,
                         tooltipDelay: 300,
+                        selectConnectedEdges: false,
                     },
                 };
 
@@ -343,13 +471,10 @@
             const updates = [];
             edges.forEach(edge => {
                 if (edge.to === nodeId) {
-                    // incoming → blue
                     updates.push({ id: edge.id, color: { color: '#2196f3', opacity: 1 }, width: 2.5 });
                 } else if (edge.from === nodeId) {
-                    // outgoing → green
                     updates.push({ id: edge.id, color: { color: '#4caf50', opacity: 1 }, width: 2.5 });
                 } else {
-                    // other → faded
                     updates.push({ id: edge.id, color: { color: '#222240', opacity: 0.25 }, width: 1 });
                 }
             });
@@ -367,7 +492,7 @@
         function fetchNodeInfo(nodeId) {
             fetch('/api/node/' + encodeURIComponent(nodeId))
                 .then(r => r.json())
-                .then(info => renderNodeInfo(info));
+                .then(info => renderNodeInfo(info, nodeId));
         }
 
         const BADGE_CLASSES = {
@@ -377,7 +502,8 @@
             'Global':             'badge-global',
         };
 
-        function renderNodeInfo(info) {
+        function renderNodeInfo(info, nodeId) {
+            destroyActiveCharts();
             const badge = BADGE_CLASSES[info.layer] || 'badge-raw';
             let html = `<div class="node-name">${info.name}</div>
                         <div class="layer-badge ${badge}">${info.layer}</div>`;
@@ -389,11 +515,11 @@
             html += buildPropertiesSection('Properties', props);
 
             if (info.components) {
-                html += buildCompositionSection('Components', info.components, '#7986cb');
+                html += buildCompositionSection('Components', info.components, '#7986cb', nodeId);
             }
 
             if (info.raw_composition) {
-                html += buildCompositionSection('Raw Material Composition', info.raw_composition, '#80cbc4');
+                html += buildCompositionSection('Raw Material Composition', info.raw_composition, '#80cbc4', null);
             }
 
             document.getElementById('sidebar-body').innerHTML = html;
@@ -411,9 +537,17 @@
             return html;
         }
 
-        function buildCompositionSection(title, data, barColor) {
+        function buildCompositionSection(title, data, barColor, editableNodeId) {
+            const secId = editableNodeId ? 'comp' : 'raw';
+            _sectionData[secId] = { data, barColor, editableNodeId: editableNodeId || null };
+
             const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
-            let html = `<div class="info-section"><h4>${title}</h4>`;
+            let html = `<div class="info-section">
+                <div class="section-title-row">
+                    <h4>${title}</h4>
+                    <button class="btn-xs" id="pie-btn-${secId}" onclick="togglePie('${secId}')">&#9685; Pie</button>
+                </div>`;
+
             for (const [name, weight] of sorted) {
                 const pct = (weight * 100).toFixed(1);
                 html += `<div class="comp-item">
@@ -424,7 +558,21 @@
                     <span class="comp-pct">${pct}%</span>
                 </div>`;
             }
-            html += `</div>`;
+
+            html += `<div id="pie-container-${secId}" class="pie-container" style="display:none">
+                <div class="pie-canvas-wrap"><canvas id="pie-canvas-${secId}"></canvas></div>`;
+
+            if (editableNodeId) {
+                html += `<div id="weight-editor-${secId}" class="weight-editor"></div>
+                    <div class="pie-actions">
+                        <button class="cancel-btn" onclick="togglePie('${secId}')">Cancel</button>
+                        <button class="apply-btn" onclick="applyWeights('${secId}')">Apply</button>
+                    </div>`;
+            } else {
+                html += `<div id="pie-legend-${secId}" class="pie-legend-list"></div>`;
+            }
+
+            html += `</div></div>`;
             return html;
         }
 
@@ -448,6 +596,188 @@
             link.href = canvas.toDataURL('image/png');
             link.download = 'simulation_graph.png';
             link.click();
+        }
+
+        /* ---- Pie chart logic ---- */
+
+        const _sectionData = {};
+        let _activeCharts = {};
+
+        const PIE_COLORS = [
+            '#7986cb', '#80cbc4', '#ffb74d', '#ef5350', '#66bb6a',
+            '#26c6da', '#ab47bc', '#ec407a', '#ff7043', '#42a5f5',
+            '#d4e157', '#26a69a'
+        ];
+
+        function getPieColors(n) {
+            return Array.from({ length: n }, (_, i) => PIE_COLORS[i % PIE_COLORS.length]);
+        }
+
+        function destroyActiveCharts() {
+            Object.values(_activeCharts).forEach(c => c.destroy());
+            for (const k in _activeCharts) delete _activeCharts[k];
+        }
+
+        function togglePie(secId) {
+            const container = document.getElementById('pie-container-' + secId);
+            const btn = document.getElementById('pie-btn-' + secId);
+            if (!container || !btn) return;
+
+            const isHidden = !container.style.display || container.style.display === 'none';
+            if (isHidden) {
+                container.style.display = 'block';
+                btn.classList.add('active');
+                if (_activeCharts[secId]) { _activeCharts[secId].destroy(); delete _activeCharts[secId]; }
+                const { data, editableNodeId } = _sectionData[secId];
+                if (editableNodeId) buildEditablePie(secId, data);
+                else buildReadOnlyPie(secId, data);
+            } else {
+                container.style.display = 'none';
+                btn.classList.remove('active');
+                if (_activeCharts[secId]) { _activeCharts[secId].destroy(); delete _activeCharts[secId]; }
+            }
+        }
+
+        function buildReadOnlyPie(secId, data) {
+            const canvas = document.getElementById('pie-canvas-' + secId);
+            if (!canvas) return;
+
+            const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+            const labels = sorted.map(([n]) => n);
+            const values = sorted.map(([, v]) => v);
+            const colors = getPieColors(labels.length);
+
+            _activeCharts[secId] = new Chart(canvas.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels,
+                    datasets: [{ data: values, backgroundColor: colors, borderColor: '#111128', borderWidth: 2 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: c => `${c.label}: ${(c.raw * 100).toFixed(1)}%` } }
+                    }
+                }
+            });
+
+            const legendEl = document.getElementById('pie-legend-' + secId);
+            if (legendEl) {
+                legendEl.innerHTML = labels.map((lbl, i) => {
+                    const short = lbl.length > 24 ? lbl.slice(0, 22) + '…' : lbl;
+                    return `<div class="pie-legend-row">
+                        <span class="pie-dot" style="background:${colors[i]}"></span>
+                        <span>${short}</span>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        function buildEditablePie(secId, data) {
+            const canvas = document.getElementById('pie-canvas-' + secId);
+            const editor = document.getElementById('weight-editor-' + secId);
+            if (!canvas || !editor) return;
+
+            const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+            const colors = getPieColors(sorted.length);
+
+            editor.innerHTML = sorted.map(([name, w], i) =>
+                `<div class="weight-row">
+                    <span class="pie-dot" style="background:${colors[i]}"></span>
+                    <span class="weight-label" title="${name}">${name}</span>
+                    <input type="number" class="weight-input" data-comp="${name}"
+                        min="0.01" max="9999" step="0.1" value="${(w * 100).toFixed(1)}"
+                        oninput="onWeightInput('${secId}')">
+                </div>`
+            ).join('');
+
+            _activeCharts[secId] = new Chart(canvas.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: sorted.map(([n]) => n),
+                    datasets: [{
+                        data: sorted.map(([, v]) => v),
+                        backgroundColor: colors,
+                        borderColor: '#111128',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: c => {
+                                    const sum = c.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = sum > 0 ? (c.raw / sum * 100).toFixed(1) : '0.0';
+                                    return `${c.label}: ${pct}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function onWeightInput(secId) {
+            const chart = _activeCharts[secId];
+            if (!chart) return;
+            const inputs = document.querySelectorAll('#weight-editor-' + secId + ' .weight-input');
+            chart.data.datasets[0].data = Array.from(inputs).map(inp => {
+                const v = parseFloat(inp.value);
+                return (isNaN(v) || v <= 0) ? 0.001 : v;
+            });
+            chart.update();
+        }
+
+        function applyWeights(secId) {
+            const { editableNodeId } = _sectionData[secId];
+            if (!editableNodeId) return;
+
+            const inputs = document.querySelectorAll('#weight-editor-' + secId + ' .weight-input');
+            const weights = {};
+            let allValid = true;
+            inputs.forEach(inp => {
+                const v = parseFloat(inp.value);
+                if (!isNaN(v) && v > 0) {
+                    weights[inp.dataset.comp] = v;
+                } else {
+                    allValid = false;
+                }
+            });
+
+            if (!allValid || !Object.keys(weights).length) {
+                alert('All weights must be positive numbers.');
+                return;
+            }
+
+            const btn = document.querySelector('#pie-container-' + secId + ' .apply-btn');
+            if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
+            fetch('/api/node/' + encodeURIComponent(editableNodeId) + '/weights', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ weights })
+            })
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.error) {
+                    alert('Error: ' + resp.error);
+                    if (btn) { btn.textContent = 'Apply'; btn.disabled = false; }
+                    return;
+                }
+                fetchNodeInfo(editableNodeId);
+            })
+            .catch(err => {
+                alert('Request failed: ' + err);
+                if (btn) { btn.textContent = 'Apply'; btn.disabled = false; }
+            });
         }
     </script>
 </body>

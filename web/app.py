@@ -72,7 +72,7 @@ def _serialize_graph(graph: Graph) -> tuple[str, dict]:
             'id': nid,
             'label': nid,
             'group': layer_groups.get(product.LAYER_NUM, 'unknown'),
-            'level': 4 - product.LAYER_NUM,  # consumer→top (1), raw→bottom (3)
+            'level': product.LAYER_NUM,  # raw→top (1), consumer→bottom (3)
         })
 
     for src, dst in graph.nxg.edges():
@@ -156,6 +156,34 @@ def api_graph():
     if _graph_json is None:
         return jsonify({'error': 'No simulation running'}), 404
     return _graph_json, 200, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/node/<path:node_id>/weights', methods=['POST'])
+def update_weights(node_id):
+    product = _node_map.get(node_id)
+    if product is None:
+        return jsonify({'error': 'Not found'}), 404
+    if not product.hasComponents():
+        return jsonify({'error': 'Product has no components'}), 400
+
+    data = request.get_json(silent=True) or {}
+    new_weights: dict = data.get('weights', {})
+
+    updates = {}
+    for comp_name, weight in new_weights.items():
+        comp_product = _node_map.get(comp_name)
+        if comp_product is not None and product.components.contains(comp_product):
+            w = float(weight)
+            if w > 0:
+                updates[comp_product] = w
+
+    if not updates:
+        return jsonify({'error': 'No valid component weights provided'}), 400
+
+    product.components.updateWeights(updates)
+
+    weights = product.components.getNormalisedWeights()
+    return jsonify({'components': {c.getDisplayName(): round(w, 4) for c, w in weights.items()}})
 
 
 @app.route('/api/node/<path:node_id>')

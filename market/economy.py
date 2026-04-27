@@ -43,7 +43,7 @@ class Economy:
         for material_type, arg_key in Economy.LAYER_ARGS.items():
             material_args = node_args[arg_key].conts
             layer_size = material_args["layer_size"]
-            material_type.class_args = material_args #TESTING
+            material_type.class_args = material_args 
             #print("{} given args : {}".format(material_type, material_args)) #DEBUG
             for x in range(layer_size):
                 material_type(**material_args) #mutable type constructor call. Feels sketchy
