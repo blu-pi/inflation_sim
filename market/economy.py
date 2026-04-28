@@ -65,6 +65,11 @@ class Economy:
 
         self.graph = Graph(consumer_layer)
 
+    def runNextTimeStep(self) -> None:
+        """Runs the next time step of the economy. Each layer makes decisions and transactions sequentially."""
+        for layer in Economy.layers.values():
+            layer.makeDecisions()
+
     @staticmethod
     def show_simulation_graph(consumer_layer):
         """Display the graph in a Tkinter window. (Depricated)"""

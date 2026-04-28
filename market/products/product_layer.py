@@ -18,6 +18,13 @@ class Layer:
         self.connection = SymmetricalConnection(self, parent)
         self.setParentLayer(parent)
 
+    def makeDecisions(self) -> None:
+        """Each product in the layer makes decisions and transactions based on its behaviour."""
+        for product in self.products:
+            #product.makeDecisions()
+            #TODO implement products accessing their strategy and implementing it's decisions.
+            pass
+
     def getSize(self) -> int:
         return len(self.products)
     

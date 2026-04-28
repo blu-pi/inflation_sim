@@ -1,5 +1,7 @@
 
 from typing import TYPE_CHECKING
+from market.products.structs.components import ComponentDict
+
 if TYPE_CHECKING:
     from market.products.base import Product
 
@@ -8,7 +10,7 @@ if TYPE_CHECKING:
 class SupplyBehaviour():
     """
     Responsible for all behaviour related to production and supply of products.
-    All supply behaviours should implement their own calcSalePrice method which determines the price at which producers will sell their product based on various factors.
+    All supply behaviours should implement their own calcSupplyPrice method which determines the price at which producers will sell their product based on various factors.
     """
 
     def __init__(self, product : 'Product') -> None:
@@ -22,13 +24,14 @@ class SimpleSupply(SupplyBehaviour):
     def __init__(self, product : 'Product') -> None:
         super().__init__(product)
 
-    def calcSalePrice(self) -> float:
-        """For simple supply, sale price is just total cost of production."""
+    def calcSupplyPrice(self) -> float:
+        """For simple supply, published price is just total cost of production."""
         return self.product.findTotalCost()
 
 class DemandBehaviour():
     """
     Responsible for all behaviour related to consumption and demand of products.
+    All demand behaviours should implement their own makePurchaseDecision method which determines what the consumer buys based on its behaviour.
     """
 
     def __init__(self, product : 'Product') -> None:
@@ -41,3 +44,8 @@ class SimpleDemand(DemandBehaviour):
 
     def __init__(self, product : 'Product') -> None:
         super().__init__(product)
+
+    def makePurchaseDecision(self) -> bool:
+        """For simple demand, consumers will buy at any price."""
+        pass
+        #TODO implement for demand-side decisions.

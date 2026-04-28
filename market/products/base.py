@@ -1,4 +1,4 @@
-from market.products.behaviour.strategy import Strategy, SimpleStrategy, AdaptiveStrategy
+from market.products.behaviour.strategy import Strategy, SimpleSupplySideStrategy
 
 class Product:
     """Essentially abstract."""
@@ -21,8 +21,8 @@ class Product:
         Product.total_created += 1
     
     def setStrategy(self, strategy : Strategy) -> None:
-        """Use default (SimpleStrategy) if no strategy provided."""
-        self.strategy = SimpleStrategy(self) if strategy is None else strategy
+        """Use default (SimpleSupplySideStrategy) if no strategy is provided."""
+        self.strategy = SimpleSupplySideStrategy(self) if strategy is None else strategy
 
     def setName(self, new_name : str) -> None:
         self.name = new_name
