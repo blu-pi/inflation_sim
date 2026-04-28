@@ -1,5 +1,7 @@
 import warnings
-from market.products.base import Product
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from market.products.base import Product
 
 
 class ComponentDict:
@@ -15,15 +17,12 @@ class ComponentDict:
         proportionally to existing ones. It's very easy using absolute values.
     """
 
-    def __init__(self, products : list[Product], debugMode : bool = False) -> None:
+    def __init__(self, products : list['Product']) -> None:
         self._components = {}
-        self.debugMode = debugMode
         for prod in products:
-            if not debugMode:
-                assert(isinstance(prod, Product))
             self._components.update({prod : 1})
 
-    def changeWeight(self, target : Product, new_weight : float) -> None:
+    def changeWeight(self, target : 'Product', new_weight : float) -> None:
         assert(new_weight > 0)
         if target not in self._components.keys():
             warnings.warn("Attempted to change weight of a product not found in component dict! Likely unwanted behaviour")
@@ -62,17 +61,17 @@ class ComponentDict:
         return total
 
     #potential rename to for clarity?
-    def getDict(self) -> dict[Product : float]:
+    def getDict(self) -> dict['Product' : float]:
         return self._components
 
     def getAll(self) -> list:
         return list(self._components.keys())
     
-    def getWeight(self, component : Product) -> float:
+    def getWeight(self, component : 'Product') -> float:
         return self._components[component]
     
     def getComponentLayers(self) -> list:
         return [prod.LAYER_NUM for prod in self.getComponents()]
     
-    def contains(self, component : Product) -> bool:
+    def contains(self, component : 'Product') -> bool:
         return component in self._components.keys()

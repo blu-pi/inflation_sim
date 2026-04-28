@@ -292,9 +292,23 @@
             min-width: 0;
         }
 
+        .weight-inputs {
+            display: flex;
+            gap: 3px;
+            flex-shrink: 0;
+            align-items: center;
+        }
+
+        .input-unit {
+            font-size: 0.60rem;
+            color: #6a6a8a;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
         .weight-input {
-            width: 62px;
-            padding: 2px 5px;
+            width: 52px;
+            padding: 2px 4px;
             background: #1a1a30;
             border: 1px solid #3a3a5e;
             border-radius: 3px;
@@ -346,6 +360,48 @@
             padding: 2px 0;
             font-size: 0.70rem;
             color: #c0c0d8;
+        }
+
+        .pie-legend-name {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pie-legend-val {
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.70rem;
+            color: #a7a9be;
+            white-space: nowrap;
+        }
+
+        .pie-legend-abs {
+            font-size: 0.67rem;
+            color: #5a5a7a;
+            margin-left: 3px;
+        }
+
+        .pct-sum-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            font-size: 0.65rem;
+            color: #a7a9be;
+            padding: 4px 0 0;
+            gap: 3px;
+        }
+
+        .pct-sum-ok  { color: #66bb6a; font-weight: 600; }
+        .pct-sum-warn { color: #ef5350; font-weight: 600; }
+
+        .pie-warn {
+            font-size: 0.68rem;
+            color: #ef5350;
+            padding: 4px 2px 0;
+            line-height: 1.35;
         }
     </style>
 </head>
@@ -515,11 +571,11 @@
             html += buildPropertiesSection('Properties', props);
 
             if (info.components) {
-                html += buildCompositionSection('Components', info.components, '#7986cb', nodeId);
+                html += buildCompositionSection('Components', info.components, info.components_abs || null, '#7986cb', nodeId);
             }
 
             if (info.raw_composition) {
-                html += buildCompositionSection('Raw Material Composition', info.raw_composition, '#80cbc4', null);
+                html += buildCompositionSection('Raw Material Composition', info.raw_composition, null, '#80cbc4', null);
             }
 
             document.getElementById('sidebar-body').innerHTML = html;
@@ -537,9 +593,9 @@
             return html;
         }
 
-        function buildCompositionSection(title, data, barColor, editableNodeId) {
+        function buildCompositionSection(title, data, absData, barColor, editableNodeId) {
             const secId = editableNodeId ? 'comp' : 'raw';
-            _sectionData[secId] = { data, barColor, editableNodeId: editableNodeId || null };
+            _sectionData[secId] = { data, absData: absData || null, barColor, editableNodeId: editableNodeId || null };
 
             const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
             let html = `<div class="info-section">
@@ -564,6 +620,10 @@
 
             if (editableNodeId) {
                 html += `<div id="weight-editor-${secId}" class="weight-editor"></div>
+                    <div id="pct-sum-${secId}" class="pct-sum-row" style="display:none">
+                        Sum: <span id="pct-sum-val-${secId}">0.0</span>%
+                    </div>
+                    <div id="pie-warn-${secId}" class="pie-warn" style="display:none"></div>
                     <div class="pie-actions">
                         <button class="cancel-btn" onclick="togglePie('${secId}')">Cancel</button>
                         <button class="apply-btn" onclick="applyWeights('${secId}')">Apply</button>
@@ -602,6 +662,7 @@
 
         const _sectionData = {};
         let _activeCharts = {};
+        const _pctDirty = {};
 
         const PIE_COLORS = [
             '#7986cb', '#80cbc4', '#ffb74d', '#ef5350', '#66bb6a',
@@ -628,9 +689,9 @@
                 container.style.display = 'block';
                 btn.classList.add('active');
                 if (_activeCharts[secId]) { _activeCharts[secId].destroy(); delete _activeCharts[secId]; }
-                const { data, editableNodeId } = _sectionData[secId];
-                if (editableNodeId) buildEditablePie(secId, data);
-                else buildReadOnlyPie(secId, data);
+                const { editableNodeId } = _sectionData[secId];
+                if (editableNodeId) buildEditablePie(secId);
+                else buildReadOnlyPie(secId);
             } else {
                 container.style.display = 'none';
                 btn.classList.remove('active');
@@ -638,10 +699,11 @@
             }
         }
 
-        function buildReadOnlyPie(secId, data) {
+        function buildReadOnlyPie(secId) {
             const canvas = document.getElementById('pie-canvas-' + secId);
             if (!canvas) return;
 
+            const { data, absData } = _sectionData[secId];
             const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
             const labels = sorted.map(([n]) => n);
             const values = sorted.map(([, v]) => v);
@@ -659,7 +721,17 @@
                     animation: false,
                     plugins: {
                         legend: { display: false },
-                        tooltip: { callbacks: { label: c => `${c.label}: ${(c.raw * 100).toFixed(1)}%` } }
+                        tooltip: {
+                            callbacks: {
+                                label: c => {
+                                    const pct = `${(c.raw * 100).toFixed(1)}%`;
+                                    if (absData && absData[c.label] !== undefined) {
+                                        return `${c.label}: ${pct} (abs: ${absData[c.label].toFixed(4)})`;
+                                    }
+                                    return `${c.label}: ${pct}`;
+                                }
+                            }
+                        }
                     }
                 }
             });
@@ -667,39 +739,61 @@
             const legendEl = document.getElementById('pie-legend-' + secId);
             if (legendEl) {
                 legendEl.innerHTML = labels.map((lbl, i) => {
-                    const short = lbl.length > 24 ? lbl.slice(0, 22) + '…' : lbl;
+                    const short = lbl.length > 22 ? lbl.slice(0, 20) + '…' : lbl;
+                    const pct = (values[i] * 100).toFixed(1);
+                    const absStr = absData && absData[lbl] !== undefined
+                        ? `<span class="pie-legend-abs">(${absData[lbl].toFixed(2)})</span>`
+                        : '';
                     return `<div class="pie-legend-row">
                         <span class="pie-dot" style="background:${colors[i]}"></span>
-                        <span>${short}</span>
+                        <span class="pie-legend-name" title="${lbl}">${short}</span>
+                        <span class="pie-legend-val">${pct}%${absStr}</span>
                     </div>`;
                 }).join('');
             }
         }
 
-        function buildEditablePie(secId, data) {
+        function buildEditablePie(secId) {
             const canvas = document.getElementById('pie-canvas-' + secId);
             const editor = document.getElementById('weight-editor-' + secId);
             if (!canvas || !editor) return;
 
+            _pctDirty[secId] = false;
+
+            const { data, absData } = _sectionData[secId];
             const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
             const colors = getPieColors(sorted.length);
 
-            editor.innerHTML = sorted.map(([name, w], i) =>
-                `<div class="weight-row">
+            editor.innerHTML = sorted.map(([name, w], i) => {
+                const absVal = absData && absData[name] !== undefined ? absData[name] : null;
+                const pct = (w * 100).toFixed(2);
+                const absStr = absVal !== null ? absVal.toFixed(4) : (w * 100).toFixed(2);
+                return `<div class="weight-row">
                     <span class="pie-dot" style="background:${colors[i]}"></span>
                     <span class="weight-label" title="${name}">${name}</span>
-                    <input type="number" class="weight-input" data-comp="${name}"
-                        min="0.01" max="9999" step="0.1" value="${(w * 100).toFixed(1)}"
-                        oninput="onWeightInput('${secId}')">
-                </div>`
-            ).join('');
+                    <div class="weight-inputs">
+                        <span class="input-unit">A</span>
+                        <input type="number" class="weight-input abs-input" data-comp="${name}"
+                            min="0.0001" step="0.01" value="${absStr}"
+                            oninput="onAbsInput('${secId}')">
+                        <span class="input-unit">%</span>
+                        <input type="number" class="weight-input pct-input" data-comp="${name}"
+                            min="0.01" max="100" step="0.01" value="${pct}"
+                            oninput="onPctInput('${secId}')">
+                    </div>
+                </div>`;
+            }).join('');
+
+            const initData = sorted.map(([name, w]) =>
+                absData && absData[name] !== undefined ? absData[name] : w
+            );
 
             _activeCharts[secId] = new Chart(canvas.getContext('2d'), {
                 type: 'pie',
                 data: {
                     labels: sorted.map(([n]) => n),
                     datasets: [{
-                        data: sorted.map(([, v]) => v),
+                        data: initData,
                         backgroundColor: colors,
                         borderColor: '#111128',
                         borderWidth: 2
@@ -716,7 +810,8 @@
                                 label: c => {
                                     const sum = c.dataset.data.reduce((a, b) => a + b, 0);
                                     const pct = sum > 0 ? (c.raw / sum * 100).toFixed(1) : '0.0';
-                                    return `${c.label}: ${pct}%`;
+                                    const abs = c.raw.toFixed(4);
+                                    return `${c.label}: ${pct}% (abs: ${abs})`;
                                 }
                             }
                         }
@@ -725,38 +820,103 @@
             });
         }
 
-        function onWeightInput(secId) {
-            const chart = _activeCharts[secId];
-            if (!chart) return;
-            const inputs = document.querySelectorAll('#weight-editor-' + secId + ' .weight-input');
-            chart.data.datasets[0].data = Array.from(inputs).map(inp => {
+        function onAbsInput(secId) {
+            _pctDirty[secId] = false;
+            const editor = document.getElementById('weight-editor-' + secId);
+            const absInputs = [...editor.querySelectorAll('.abs-input')];
+            const pctInputs = [...editor.querySelectorAll('.pct-input')];
+
+            const absVals = absInputs.map(inp => {
                 const v = parseFloat(inp.value);
-                return (isNaN(v) || v <= 0) ? 0.001 : v;
+                return (isNaN(v) || v <= 0) ? 0 : v;
             });
-            chart.update();
+            const total = absVals.reduce((a, b) => a + b, 0);
+
+            absVals.forEach((v, i) => {
+                pctInputs[i].value = total > 0 ? (v / total * 100).toFixed(2) : '0.00';
+            });
+
+            const chart = _activeCharts[secId];
+            if (chart) {
+                chart.data.datasets[0].data = absVals.map(v => v > 0 ? v : 0.0001);
+                chart.update();
+            }
+
+            const sumRow = document.getElementById('pct-sum-' + secId);
+            if (sumRow) sumRow.style.display = 'none';
+            const warnEl = document.getElementById('pie-warn-' + secId);
+            if (warnEl) warnEl.style.display = 'none';
+        }
+
+        function onPctInput(secId) {
+            _pctDirty[secId] = true;
+            const editor = document.getElementById('weight-editor-' + secId);
+            const pctInputs = [...editor.querySelectorAll('.pct-input')];
+
+            const pctVals = pctInputs.map(inp => {
+                const v = parseFloat(inp.value);
+                return isNaN(v) ? 0 : v;
+            });
+            const sum = pctVals.reduce((a, b) => a + b, 0);
+
+            const sumRow = document.getElementById('pct-sum-' + secId);
+            const sumValEl = document.getElementById('pct-sum-val-' + secId);
+            if (sumRow && sumValEl) {
+                sumRow.style.display = 'flex';
+                sumValEl.textContent = sum.toFixed(1);
+                sumValEl.className = Math.abs(sum - 100) <= 0.5 ? 'pct-sum-ok' : 'pct-sum-warn';
+            }
+
+            const chart = _activeCharts[secId];
+            if (chart) {
+                chart.data.datasets[0].data = pctVals.map(v => v > 0 ? v : 0.0001);
+                chart.update();
+            }
         }
 
         function applyWeights(secId) {
             const { editableNodeId } = _sectionData[secId];
             if (!editableNodeId) return;
 
-            const inputs = document.querySelectorAll('#weight-editor-' + secId + ' .weight-input');
+            const editor = document.getElementById('weight-editor-' + secId);
+            const warnEl = document.getElementById('pie-warn-' + secId);
+            const showWarn = msg => { if (warnEl) { warnEl.textContent = msg; warnEl.style.display = 'block'; } };
+            const clearWarn = () => { if (warnEl) warnEl.style.display = 'none'; };
+
             const weights = {};
             let allValid = true;
-            inputs.forEach(inp => {
-                const v = parseFloat(inp.value);
-                if (!isNaN(v) && v > 0) {
-                    weights[inp.dataset.comp] = v;
-                } else {
-                    allValid = false;
-                }
-            });
 
-            if (!allValid || !Object.keys(weights).length) {
-                alert('All weights must be positive numbers.');
-                return;
+            if (_pctDirty[secId]) {
+                const pctInputs = [...editor.querySelectorAll('.pct-input')];
+                let sum = 0;
+                pctInputs.forEach(inp => {
+                    const v = parseFloat(inp.value);
+                    if (!isNaN(v) && v > 0) {
+                        weights[inp.dataset.comp] = v / 100;
+                        sum += v;
+                    } else {
+                        allValid = false;
+                    }
+                });
+                if (!allValid) { showWarn('All percentages must be positive numbers.'); return; }
+                if (Math.abs(sum - 100) > 0.5) {
+                    showWarn(`Percentages add up to ${sum.toFixed(1)}%, not 100%. Weights not changed.`);
+                    return;
+                }
+            } else {
+                const absInputs = [...editor.querySelectorAll('.abs-input')];
+                absInputs.forEach(inp => {
+                    const v = parseFloat(inp.value);
+                    if (!isNaN(v) && v > 0) weights[inp.dataset.comp] = v;
+                    else allValid = false;
+                });
+                if (!allValid || !Object.keys(weights).length) {
+                    showWarn('All weights must be positive numbers.');
+                    return;
+                }
             }
 
+            clearWarn();
             const btn = document.querySelector('#pie-container-' + secId + ' .apply-btn');
             if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
@@ -768,14 +928,14 @@
             .then(r => r.json())
             .then(resp => {
                 if (resp.error) {
-                    alert('Error: ' + resp.error);
+                    showWarn('Error: ' + resp.error);
                     if (btn) { btn.textContent = 'Apply'; btn.disabled = false; }
                     return;
                 }
                 fetchNodeInfo(editableNodeId);
             })
             .catch(err => {
-                alert('Request failed: ' + err);
+                showWarn('Request failed: ' + err);
                 if (btn) { btn.textContent = 'Apply'; btn.disabled = false; }
             });
         }

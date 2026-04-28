@@ -205,9 +205,13 @@ def api_node(node_id):
 
     if product.hasComponents():
         weights = product.components.getNormalisedWeights()
+        abs_weights = product.components.getDict()
         info['num_components'] = len(weights)
         info['components'] = {
             c.getDisplayName(): round(w, 4) for c, w in weights.items()
+        }
+        info['components_abs'] = {
+            c.getDisplayName(): round(w, 6) for c, w in abs_weights.items()
         }
 
     if isinstance(product, ConsumerProduct):
