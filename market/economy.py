@@ -26,6 +26,7 @@ class Economy:
     #Dictionaries do preserve insertion order so this is fine. Will be used to create layers in correct order and assign args to correct product types.
 
     layers = LAYER_ARGS.copy()
+    layers : dict[Product, Layer]
 
     def __init__(self, arg_dicts : dict) -> None:
         self.sim_args = arg_dicts["sim_args"].conts
@@ -67,6 +68,7 @@ class Economy:
 
     def runNextTimeStep(self) -> None:
         """Runs the next time step of the economy. Each layer makes decisions and transactions sequentially."""
+        #for supply side time-steps, run layers in creation order. For demand side time-steps, run layers in reverse creation order. For now, only supply side time-steps are implemented.
         for layer in Economy.layers.values():
             layer.makeDecisions()
 

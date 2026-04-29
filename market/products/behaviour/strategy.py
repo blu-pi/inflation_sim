@@ -18,6 +18,19 @@ class StaticStrategy():
         self.supply_behaviour = supply_behaviour
         self.demand_behaviour = demand_behaviour
 
+    def apply(self) -> None:
+        """
+        Attempts to apply demand behaviour then supply behaviour if available. At least 1 must be available or an error is raised.
+        """
+        #TODO consider offloading more to either base Product class or behaviour classes.
+        if self.demand_behaviour is not None:
+            #Not implemted yet
+            print("Demand behaviour not implemented yet. Demand behaviour will not be applied.")
+            #self.demand_behaviour.makePurchaseDecision()
+        if self.supply_behaviour is not None:
+            sale_price : float = self.supply_behaviour.calcSupplyPrice()
+            self.product.publishSalePrice(sale_price)
+
 class SimpleSupplySideStrategy(StaticStrategy):
     """
     Simple strategy focused on supply-side behaviour. Demand fully dependent on decisions made by supply behaviour.
@@ -36,3 +49,9 @@ class AdaptiveStrategy():
 
     def __init__(self, product : 'Product') -> None:
         self.product = product
+
+    def apply(self) -> None:
+        """
+        Attempts to apply demand behaviour then supply behaviour if available. At least 1 must be available or an error is raised.
+        """
+        pass

@@ -1,3 +1,5 @@
+import warnings
+
 from market.products.behaviour.strategy import Strategy, SimpleSupplySideStrategy
 
 class Product:
@@ -18,11 +20,22 @@ class Product:
         self.unit_cost = unit_cost
         self.setStrategy(strategy)
         self._id = len(self._existing)
+        self.sale_price = None
         Product.total_created += 1
     
     def setStrategy(self, strategy : Strategy) -> None:
         """Use default (SimpleSupplySideStrategy) if no strategy is provided."""
-        self.strategy = SimpleSupplySideStrategy(self) if strategy is None else strategy
+        self.strategy : Strategy = SimpleSupplySideStrategy(self) if strategy is None else strategy
+
+    def applyStrategy(self) -> None:
+        self.strategy.apply()
+    
+    def publishSalePrice(self, price : float) -> None:
+        """
+        Publishes per-unit sale price of product to market. Might in future contain a fixed supply limit that buyers must compete for.
+        For now, infinite supply is assumed.
+        """
+        self.sale_price = price
 
     def setName(self, new_name : str) -> None:
         self.name = new_name
@@ -33,14 +46,25 @@ class Product:
     def setUnitCost(self, cost : float) -> None:
         self.unit_cost = cost
 
-    def findTotalCost(self) -> float:
-        """Calculates actual total cost of production includeing all potential factors.
+    def findSupplyChainCost(self) -> float:
+        """
+        THIS IS A TOOL FOR DATA ANALYSIS ONLY!
+        Calculates total cost of production for this products entire supply chain.
         total_cost = unit_cost + component_cost + cost of global products (Not yet implemented).
         """
+        #I should totally just get rid of this
         total_cost : float = self.unit_cost
         if self.hasComponents():
+            warnings.warn("Expensive and unnessacary call to find total costs for components of a composite product. This better not be call during simulation runtime >=/.")
             total_cost += self.getComponentCost()
         #global product costs not implemented yet, but would be added here.
+        return total_cost
+    
+    def findTotalCost(self) -> float:
+        total_cost : float = self.unit_cost
+        if self.hasComponents():
+            total_cost += self.getComponentPrice()
+        #TODO implement globals here.
         return total_cost
 
     def hasComponents(self) -> bool:

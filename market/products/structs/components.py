@@ -55,9 +55,27 @@ class ComponentDict:
         return len(weights) == 1
     
     def getTotalCost(self) -> float:
+        """
+        Expensive recursive call. Returns total cost of components based on ALL products in the supply chain of components.
+        Information might not be very relevant for the simulation runtime.
+        Could be used for data analysis and visualisation of supply chains after the fact, but not sure if it's worth it.
+        """
         total = 0
         for product, weight in self._components.items():
-            total += product.unit_cost * weight #TODO not unit cost, supply behaviour calculated price!
+            total += product.findTotalCost() * weight
+        return total
+    
+    def getTotalPrice(self) -> float:
+        """
+        Lighter and more useful version of getTotalCost. Returns price instead of cost which is more relevant.
+        Additionally, the call is not recursive and prices are 'cached' by each product that publishes it's price to the market.
+        This turns a recursive cost calculation into a simple linear-complexity lookup for prices.
+        The downside - can't find prices that aren't published to the market. 
+            This method can only be successfully called if all layers that come ahead in the supply chain have published prices already. 
+        """
+        total = 0
+        for product, weight in self._components.items():
+            total += product.sale_price * weight #TODO handle case where price is not published yet. For now, just assume all prices are always published before getTotalPrice is called.
         return total
 
     #potential rename to for clarity?

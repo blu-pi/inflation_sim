@@ -28,6 +28,12 @@ class Composite(Product):
             warnings.warn("{} has no components. Returning 0.".format(self.getDisplayName()))
             return 0
         return self.components.getTotalCost()
+    
+    def getComponentPrice(self) -> float:
+        if self.components is None:
+            warnings.warn("{} has no components. Returning 0.".format(self.getDisplayName()))
+            return 0
+        return self.components.getTotalPrice()
 
     def getAllArgs(self) -> dict:
         return super().getAllArgs() | Composite.class_args 

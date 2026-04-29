@@ -1,11 +1,12 @@
 
+from market.products.base import Product
 from market.products.structs.layer_connection import SymmetricalConnection
 
 
 class Layer:
     """Manages collections of Products."""
 
-    def __init__(self, layer_name : str, products : list, parent_layer : 'Layer' = None) -> None:
+    def __init__(self, layer_name : str, products : list['Product'], parent_layer : 'Layer' = None) -> None:
         self.layer_name = layer_name
         self.products = products
         self.parent = parent_layer
@@ -21,7 +22,7 @@ class Layer:
     def makeDecisions(self) -> None:
         """Each product in the layer makes decisions and transactions based on its behaviour."""
         for product in self.products:
-            #product.makeDecisions()
+            product.applyStrategy()
             #TODO implement products accessing their strategy and implementing it's decisions.
             pass
 
