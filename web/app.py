@@ -24,6 +24,8 @@ app = Flask(__name__)
 
 _graph_json: str | None = None
 _node_map: dict = {}
+_economy: Economy | None = None
+_step_count: int = 0
 
 ARG_CLASSES: list[tuple] = [
     ('sim_args',       SimArgs),
@@ -83,10 +85,13 @@ def _serialize_graph(graph: Graph) -> tuple[str, dict]:
 
 
 def _reset_products() -> None:
+    global _economy, _step_count
     for cls in (RawMaterial, ProcessedMaterial, ConsumerProduct, GlobalMaterial):
         cls._existing.clear()
     Product.total_created = 0
     Economy.layers = Economy.LAYER_ARGS.copy()
+    _economy = None
+    _step_count = 0
 
 
 def _coerce(val: str, default):
@@ -139,8 +144,9 @@ def run_simulation():
                 user_input[field] = _coerce(form[form_key], default)
         arg_dicts[key] = cls(user_input)
 
-    economy = Economy(arg_dicts)
-    _graph_json, _node_map = _serialize_graph(economy.graph)
+    global _economy
+    _economy = Economy(arg_dicts)
+    _graph_json, _node_map = _serialize_graph(_economy.graph)
     return redirect(url_for('simulation'))
 
 
@@ -156,6 +162,17 @@ def api_graph():
     if _graph_json is None:
         return jsonify({'error': 'No simulation running'}), 404
     return _graph_json, 200, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/timestep', methods=['POST'])
+def api_timestep():
+    global _step_count
+    if _economy is None:
+        return jsonify({'error': 'No simulation running'}), 404
+    _economy.runNextTimeStep()
+    _step_count += 1
+    prices = {nid: product.sale_price for nid, product in _node_map.items()}
+    return jsonify({'prices': prices, 'step': _step_count})
 
 
 @app.route('/api/node/<path:node_id>/weights', methods=['POST'])
@@ -198,6 +215,7 @@ def api_node(node_id):
         'layer': layer_names.get(product.LAYER_NUM, f'Layer {product.LAYER_NUM}'),
         'id': product.getId(),
         'unit_cost': product.unit_cost,
+        'sale_price': product.sale_price,
     }
 
     if isinstance(product, RawMaterial):

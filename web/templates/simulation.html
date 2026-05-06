@@ -427,6 +427,8 @@
     <div class="toolbar">
         <button class="btn" onclick="resetView()">&#8635; Reset View</button>
         <button class="btn" onclick="exportPNG()">&#8659; Export PNG</button>
+        <button class="btn" id="step-btn" onclick="stepTime()" style="border-color:#5c6bc0; color:#c5cae9;">&#9658; Next Step</button>
+        <span id="step-label" style="font-size:0.78rem; color:#a7a9be;"></span>
         <div class="legend">
             <div class="legend-item">
                 <div class="legend-dot" style="background:#97c2fc"></div>Raw
@@ -442,6 +444,7 @@
 
     <script>
         let network, nodes, edges;
+        let _currentNodeId = null;
 
         fetch('/api/graph')
             .then(r => r.json())
@@ -514,9 +517,11 @@
                 network.on('click', function (params) {
                     if (params.nodes.length > 0) {
                         const nodeId = params.nodes[0];
+                        _currentNodeId = nodeId;
                         highlightEdges(nodeId);
                         fetchNodeInfo(nodeId);
                     } else if (params.nodes.length === 0 && params.edges.length === 0) {
+                        _currentNodeId = null;
                         resetEdgeColors();
                         showHint();
                     }
@@ -566,6 +571,8 @@
 
             const props = [['ID', info.id]];
             if (info.unit_cost !== undefined) props.push(['Unit Cost', info.unit_cost]);
+            if (info.sale_price !== null && info.sale_price !== undefined)
+                props.push(['Sale Price', '$' + info.sale_price.toFixed(4)]);
             if (info.units_avail !== undefined) props.push(['Units Available', info.units_avail]);
             if (info.num_components !== undefined) props.push(['# Components', info.num_components]);
             html += buildPropertiesSection('Properties', props);
@@ -656,6 +663,36 @@
             link.href = canvas.toDataURL('image/png');
             link.download = 'simulation_graph.png';
             link.click();
+        }
+
+        function stepTime() {
+            const btn = document.getElementById('step-btn');
+            btn.disabled = true;
+            btn.textContent = 'Stepping…';
+
+            fetch('/api/timestep', { method: 'POST' })
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.error) { alert('Step error: ' + resp.error); return; }
+
+                    document.getElementById('step-label').textContent = 'Step ' + resp.step;
+                    btn.textContent = '✓ Step ' + resp.step;
+
+                    const updates = [];
+                    for (const [nid, price] of Object.entries(resp.prices)) {
+                        if (price !== null && price !== undefined) {
+                            updates.push({ id: nid, label: nid + '\n$' + price.toFixed(4) });
+                        }
+                    }
+                    nodes.update(updates);
+
+                    if (_currentNodeId) fetchNodeInfo(_currentNodeId);
+                })
+                .catch(err => {
+                    alert('Step failed: ' + err);
+                    btn.disabled = false;
+                    btn.textContent = '▶ Next Step';
+                });
         }
 
         /* ---- Pie chart logic ---- */
