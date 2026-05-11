@@ -430,6 +430,9 @@
         <button class="btn" id="step-btn" onclick="stepTime()" style="border-color:#5c6bc0; color:#c5cae9;">&#9658; Next Step</button>
         <span id="step-label" style="font-size:0.78rem; color:#a7a9be;"></span>
         <div class="legend">
+            <div class="legend-item" id="global-legend-item" style="display:none">
+                <div class="legend-dot" style="background:#7be141"></div>Global
+            </div>
             <div class="legend-item">
                 <div class="legend-dot" style="background:#97c2fc"></div>Raw
             </div>
@@ -445,6 +448,17 @@
     <script>
         let network, nodes, edges;
         let _currentNodeId = null;
+        let _globalsData = { active: false, globals: [] };
+
+        fetch('/api/globals')
+            .then(r => r.json())
+            .then(data => {
+                _globalsData = data;
+                if (data.active) {
+                    const legendEl = document.getElementById('global-legend-item');
+                    if (legendEl) legendEl.style.display = 'flex';
+                }
+            });
 
         fetch('/api/graph')
             .then(r => r.json())
@@ -585,6 +599,10 @@
                 html += buildCompositionSection('Raw Material Composition', info.raw_composition, null, '#80cbc4', null);
             }
 
+            if (_globalsData.active && info.layer !== 'Global') {
+                html += buildGlobalsSection(_globalsData.globals);
+            }
+
             document.getElementById('sidebar-body').innerHTML = html;
         }
 
@@ -641,6 +659,28 @@
 
             html += `</div></div>`;
             return html;
+        }
+
+        function buildGlobalsSection(globals) {
+            let html = `<div class="info-section"><h4>Global Materials</h4>`;
+            for (const g of globals) {
+                html += `<div class="prop-item">
+                    <span class="prop-key" style="cursor:pointer;color:#7be141;text-decoration:underline dotted;"
+                          onclick="selectGlobalNode('${g.id}')" title="Click to inspect ${g.name}">${g.name}</span>
+                    <span class="prop-val">$${g.unit_cost.toFixed(4)}</span>
+                </div>`;
+            }
+            html += `</div>`;
+            return html;
+        }
+
+        function selectGlobalNode(nodeId) {
+            _currentNodeId = nodeId;
+            if (network) {
+                network.selectNodes([nodeId]);
+                highlightEdges(nodeId);
+            }
+            fetchNodeInfo(nodeId);
         }
 
         function showHint() {

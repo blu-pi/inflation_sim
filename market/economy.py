@@ -63,6 +63,8 @@ class Economy:
 
         consumer_layer.connect(processed_layer)
         processed_layer.connect(raw_layer)
+        if self.sim_args["use_globals"]:
+            GlobalMaterial.publishGlobalProducts() 
 
         self.graph = Graph(consumer_layer)
 
@@ -70,6 +72,8 @@ class Economy:
         """Runs the next time step of the economy. Each layer makes decisions and transactions sequentially."""
         #for supply side time-steps, run layers in creation order. For demand side time-steps, run layers in reverse creation order. For now, only supply side time-steps are implemented.
         for layer in Economy.layers.values():
+            if isinstance(layer.products[0], GlobalMaterial):
+                continue #globals aren't 'intelligent' and don't ever make 'decisions'. 
             layer.makeDecisions()
 
     @staticmethod

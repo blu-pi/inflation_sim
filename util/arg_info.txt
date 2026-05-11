@@ -9,11 +9,13 @@
 
 #section global_args
 #argument layer_size: "Integer, total number of global materials to be used in the simulation. Will be ignored if *use_globals* is Flase."
+#argument unit_cost: "Float, initial set cost to 'use' 1 unit of global material. i.e. 1 unit of labour/electricity."
 
 #section raw_args
 #argument layer_size: "Integer, total number of raw materials in the simulation. If *num_preferred_components* > this layer_size, expect problems."
 #argument infinite_supply : "True/False, Should there be an infinite amount of raw materials. If True then 'units_avail' will not be used in any way."
 #argument units_avail: "Integer, starting fixed supply limit of raw materials for supply-side analysis. NOT YET IMPLEMENTED (does nothing)"
+#argument unit_cost: "Float, initial set cost to 'produce' 1 unit of raw material."
 
 #section processed_args
 #argument layer_size: "Integer, total number of processed materials to be used in the simulation."

@@ -8,6 +8,7 @@ class Product:
     LAYER_NUM = 0
     total_created = 0
     class_args = None #args that apply to all class members, can be overriden by individual args
+    global_members = []
 
     def __init__(self, name : str = None, unit_cost : float = 0, strategy : Strategy = None) -> None:
         """
@@ -64,8 +65,19 @@ class Product:
         total_cost : float = self.unit_cost
         if self.hasComponents():
             total_cost += self.getComponentPrice()
-        #TODO implement globals here.
+        if self not in self.global_members:
+            total_cost += self.findGlobalCost()
         return total_cost
+    
+    def findGlobalCost(self, weightings : dict = None) -> float:
+        """
+        Calculates total cost of global products required for production of this product.
+        For now, simply sums unit costs of all global products. 
+        In future, may include weight that can be adjusted per product.
+        """
+        if self.global_members is None or len(self.global_members) == 0:
+            return 0
+        return sum([global_product.unit_cost for global_product in self.global_members]) #TODO -add weightings functionality one day mayhaps
 
     def hasComponents(self) -> bool:
         return False

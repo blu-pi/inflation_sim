@@ -26,6 +26,7 @@ _graph_json: str | None = None
 _node_map: dict = {}
 _economy: Economy | None = None
 _step_count: int = 0
+_use_globals: bool = False
 
 ARG_CLASSES: list[tuple] = [
     ('sim_args',       SimArgs),
@@ -61,7 +62,7 @@ def _load_arg_info() -> dict:
 ARG_INFO = _load_arg_info()
 
 
-def _serialize_graph(graph: Graph) -> tuple[str, dict]:
+def _serialize_graph(graph: Graph, global_products: list = None) -> tuple[str, dict]:
     node_map: dict = {}
     nodes: list = []
     edges: list = []
@@ -81,17 +82,29 @@ def _serialize_graph(graph: Graph) -> tuple[str, dict]:
         sid, did = src.getDisplayName(), dst.getDisplayName()
         edges.append({'id': f'{sid}->{did}', 'from': sid, 'to': did})
 
+    if global_products:
+        for product in global_products:
+            nid = product.getDisplayName()
+            node_map[nid] = product
+            nodes.append({
+                'id': nid,
+                'label': nid,
+                'group': 'global',
+                'level': 0,
+            })
+
     return json.dumps({'nodes': nodes, 'edges': edges}), node_map
 
 
 def _reset_products() -> None:
-    global _economy, _step_count
+    global _economy, _step_count, _use_globals
     for cls in (RawMaterial, ProcessedMaterial, ConsumerProduct, GlobalMaterial):
         cls._existing.clear()
     Product.total_created = 0
     Economy.layers = Economy.LAYER_ARGS.copy()
     _economy = None
     _step_count = 0
+    _use_globals = False
 
 
 def _coerce(val: str, default):
@@ -128,7 +141,7 @@ def index():
 
 @app.route('/run', methods=['POST'])
 def run_simulation():
-    global _graph_json, _node_map
+    global _graph_json, _node_map, _use_globals
     _reset_products()
 
     form = request.form
@@ -146,7 +159,9 @@ def run_simulation():
 
     global _economy
     _economy = Economy(arg_dicts)
-    _graph_json, _node_map = _serialize_graph(_economy.graph)
+    _use_globals = arg_dicts["sim_args"].conts.get("use_globals", False)
+    global_products = GlobalMaterial.getAll() if _use_globals else []
+    _graph_json, _node_map = _serialize_graph(_economy.graph, global_products)
     return redirect(url_for('simulation'))
 
 
@@ -239,6 +254,19 @@ def api_node(node_id):
         }
 
     return jsonify(info)
+
+
+@app.route('/api/globals')
+def api_globals():
+    if not _use_globals:
+        return jsonify({'active': False, 'globals': []})
+    return jsonify({
+        'active': True,
+        'globals': [
+            {'id': g.getDisplayName(), 'name': g.name, 'unit_cost': g.unit_cost}
+            for g in GlobalMaterial.getAll()
+        ]
+    })
 
 
 def start(host='127.0.0.1', port=5000):
