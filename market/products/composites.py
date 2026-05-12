@@ -7,8 +7,6 @@ from market.products.structs.components import ComponentDict
 class Composite(Product):
     """Essentially abstract. Any Product made of other products (excluding globals)"""
 
-    class_args = None #args that apply to all class members, can be overriden by individual args
-
     def __init__(self, name: str = None, unit_cost: float = 0, num_preferred_components : int = 0, components : ComponentDict = None, **kwargs) -> None:
         super().__init__(name, unit_cost)
         self.components = components
@@ -34,6 +32,3 @@ class Composite(Product):
             warnings.warn("{} has no components. Returning 0.".format(self.getDisplayName()))
             return 0
         return self.components.getTotalPrice()
-
-    def getAllArgs(self) -> dict:
-        return super().getAllArgs() | Composite.class_args 

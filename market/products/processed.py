@@ -7,7 +7,6 @@ class ProcessedMaterial(Composite):
 
     LAYER_NUM = 2
     _existing = []
-    class_args = None #args that apply to all class members, can be overriden by individual args
 
     def __init__(self, name : str = None, unit_cost : float = 0, components : ComponentDict = None, **kwargs) -> None:
         super().__init__(name, unit_cost, kwargs["num_preferred_components"], components)
@@ -22,6 +21,3 @@ class ProcessedMaterial(Composite):
     @staticmethod
     def getAll() -> list:
         return ProcessedMaterial._existing
-    
-    def getAllArgs(self) -> dict:
-        return super().getAllArgs() | self.class_args

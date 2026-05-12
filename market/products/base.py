@@ -1,3 +1,4 @@
+
 import warnings
 
 from market.products.behaviour.strategy import Strategy, SimpleSupplySideStrategy
@@ -5,9 +6,6 @@ from market.products.behaviour.strategy import Strategy, SimpleSupplySideStrateg
 class Product:
     """Essentially abstract."""
 
-    LAYER_NUM = 0
-    total_created = 0
-    class_args = None #args that apply to all class members, can be overriden by individual args
     global_members = []
 
     def __init__(self, name : str = None, unit_cost : float = 0, strategy : Strategy = None) -> None:
@@ -81,9 +79,6 @@ class Product:
 
     def hasComponents(self) -> bool:
         return False
-    
-    def getAllArgs(self) -> dict:
-        return Product.class_args
 
     def getId(self) -> int:
         """ID of object within its Layer. Ids are shared across layers"""
