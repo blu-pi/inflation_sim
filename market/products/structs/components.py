@@ -1,5 +1,7 @@
 import warnings
-from market.products.base import Product
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from market.products.base import Product
 
 
 class ComponentDict:
@@ -15,15 +17,12 @@ class ComponentDict:
         proportionally to existing ones. It's very easy using absolute values.
     """
 
-    def __init__(self, products : list[Product], debugMode : bool = False) -> None:
+    def __init__(self, products : list['Product']) -> None:
         self._components = {}
-        self.debugMode = debugMode
         for prod in products:
-            if not debugMode:
-                assert(isinstance(prod, Product))
             self._components.update({prod : 1})
 
-    def changeWeight(self, target : Product, new_weight : float) -> None:
+    def changeWeight(self, target : 'Product', new_weight : float) -> None:
         assert(new_weight > 0)
         if target not in self._components.keys():
             warnings.warn("Attempted to change weight of a product not found in component dict! Likely unwanted behaviour")
@@ -39,7 +38,7 @@ class ComponentDict:
         """
         Return value is a dict and NOT a ComponentDict
         This is to ensure normalised values are never used outside of data analysis
-        Essentially a product's assigned Component list should never return normalised weights
+        Essentially a product's assigned Component list should always returns absolute weights - not relative/normalised ones.
         """
         weight_total = sum(self._components.values())
         if weight_total != 1:
@@ -54,18 +53,43 @@ class ComponentDict:
         #small optimisation possible for potentially large ._contents dicts. Not significant for values <100 for sure.
         weights = {self._components.values()}
         return len(weights) == 1
+    
+    def getTotalCost(self) -> float:
+        """
+        Expensive recursive call. Returns total cost of components based on ALL products in the supply chain of components.
+        Information might not be very relevant for the simulation runtime.
+        Could be used for data analysis and visualisation of supply chains after the fact, but not sure if it's worth it.
+        """
+        total = 0
+        for product, weight in self._components.items():
+            total += product.findTotalCost() * weight
+        return total
+    
+    def getTotalPrice(self) -> float:
+        """
+        Lighter and more useful version of getTotalCost. Returns price instead of cost which is more relevant.
+        Additionally, the call is not recursive and prices are 'cached' by each product that publishes it's price to the market.
+        This turns a recursive cost calculation into a simple linear-complexity lookup for prices.
+        The downside - can't find prices that aren't published to the market. 
+            This method can only be successfully called if all layers that come ahead in the supply chain have published prices already. 
+        """
+        total = 0
+        for product, weight in self._components.items():
+            total += product.sale_price * weight #TODO handle case where price is not published yet. For now, just assume all prices are always published before getTotalPrice is called.
+        return total
 
-    def getDict(self) -> dict[Product : float]:
+    #potential rename to for clarity?
+    def getDict(self) -> dict['Product' : float]:
         return self._components
 
     def getAll(self) -> list:
         return list(self._components.keys())
     
-    def getWeight(self, component : Product) -> float:
+    def getWeight(self, component : 'Product') -> float:
         return self._components[component]
     
     def getComponentLayers(self) -> list:
         return [prod.LAYER_NUM for prod in self.getComponents()]
     
-    def contains(self, component : Product) -> bool:
+    def contains(self, component : 'Product') -> bool:
         return component in self._components.keys()

@@ -10,13 +10,10 @@ from market.products.processed import ProcessedMaterial
 from market.products.product_layer import Layer
 from market.products.raw_materials import RawMaterial
 
-if TYPE_CHECKING:
-   from market.input.sim_args import ArgDict
-
 
 class Economy:
     """
-    Economy is synonym for Simulation. Responsible for top-level simulation management.
+    The creator and manager of the economy. Responsible for creating products, organising them into layers, and connecting them together to create a supply chain.
     """
     #layer creation order: Globals, Raw, Processed, Consumer
     #consider renaming
@@ -26,22 +23,18 @@ class Economy:
         ProcessedMaterial : "processed_args",
         ConsumerProduct : "consumer_args"
     }
-    #Dictionaries don't preserve ordering for keys anymore so this doesn't actually hardcode creation order.
+    #Dictionaries do preserve insertion order so this is fine. Will be used to create layers in correct order and assign args to correct product types.
 
     layers = LAYER_ARGS.copy()
+    layers : dict[Product, Layer]
 
-    def __init__(self, arg_dicts : dict['ArgDict']) -> None:
+    def __init__(self, arg_dicts : dict) -> None:
         self.sim_args = arg_dicts["sim_args"].conts
-        #setting args for abstracts
+        #setting args for abstracts - eventually change to append to relevant instanciated product args dict.
         Product.class_args = arg_dicts["product_args"].conts
         Composite.class_args = arg_dicts["composite_args"].conts
         self.createLayers(arg_dicts)
         self.connectAllLayers()
-        
-        Economy.show_simulation_graph(self.layers[ConsumerProduct])
-
-        if self.sim_args["run_composition_test"]:
-            Economy.compositionTest() #maybe make optional for some testing
 
     def createLayers(self, node_args) -> None:
         """
@@ -51,10 +44,10 @@ class Economy:
         for material_type, arg_key in Economy.LAYER_ARGS.items():
             material_args = node_args[arg_key].conts
             layer_size = material_args["layer_size"]
-            material_type.class_args = material_args
+            material_type.class_args = material_args 
             #print("{} given args : {}".format(material_type, material_args)) #DEBUG
             for x in range(layer_size):
-                material_type() #mutable type constructor call. Feels sketchy
+                material_type(**material_args) #mutable type constructor call. Feels sketchy
             Economy.layers.update({material_type : Layer(material_type.getLayerName(), material_type.getAll())})
             #Replace values stored in class attr. so it stores created Layer objs.
 
@@ -68,14 +61,24 @@ class Economy:
         processed_layer : Layer = Economy.layers[ProcessedMaterial]
         raw_layer : Layer = Economy.layers[RawMaterial]
 
-        consumer_layer.connect(processed_layer)  
+        consumer_layer.connect(processed_layer)
         processed_layer.connect(raw_layer)
+        if self.sim_args["use_globals"]:
+            GlobalMaterial.publishGlobalProducts() 
 
-        logic_graph = Graph(consumer_layer)
+        self.graph = Graph(consumer_layer)
+
+    def runNextTimeStep(self) -> None:
+        """Runs the next time step of the economy. Each layer makes decisions and transactions sequentially."""
+        #for supply side time-steps, run layers in creation order. For demand side time-steps, run layers in reverse creation order. For now, only supply side time-steps are implemented.
+        for layer in Economy.layers.values():
+            if isinstance(layer.products[0], GlobalMaterial):
+                continue #globals aren't 'intelligent' and don't ever make 'decisions'. 
+            layer.makeDecisions()
 
     @staticmethod
     def show_simulation_graph(consumer_layer):
-        """Display the graph in a Tkinter window"""
+        """Display the graph in a Tkinter window. (Depricated)"""
         import tkinter as tk
         # Create the graph
         graph = Graph(consumer_layer)

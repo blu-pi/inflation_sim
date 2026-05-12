@@ -9,8 +9,8 @@ class ProcessedMaterial(Composite):
     _existing = []
     class_args = None #args that apply to all class members, can be overriden by individual args
 
-    def __init__(self, name : str = None, unit_cost : float = 0, components : ComponentDict = None) -> None:
-        super().__init__(name, unit_cost, components)
+    def __init__(self, name : str = None, unit_cost : float = 0, components : ComponentDict = None, **kwargs) -> None:
+        super().__init__(name, unit_cost, kwargs["num_preferred_components"], components)
         if name is None:
             self.setName(self.generateName())
         ProcessedMaterial._existing.append(self)

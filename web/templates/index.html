@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inflation Simulation — Parameters</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+        header {
+            background: #1a237e;
+            color: white;
+            padding: 14px 24px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 28px auto;
+            padding: 0 16px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 18px 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: #5c6bc0;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8eaf6;
+        }
+
+        .field { margin-bottom: 12px; }
+
+        .field label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: #37474f;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .field input[type="number"],
+        .field input[type="text"],
+        .field select {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #cfd8dc;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: #263238;
+            background: #fafafa;
+            transition: border-color 0.15s;
+        }
+
+        .field input[type="number"]:focus,
+        .field input[type="text"]:focus,
+        .field select:focus {
+            outline: none;
+            border-color: #5c6bc0;
+            background: white;
+        }
+
+        .field.bool-field {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 0;
+        }
+
+        .field.bool-field label { margin-bottom: 0; cursor: pointer; }
+
+        .field input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #5c6bc0;
+        }
+
+        .tip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #c5cae9;
+            color: #3949ab;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: help;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .tip:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #263238;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            z-index: 100;
+            pointer-events: none;
+            width: 200px;
+            white-space: normal;
+            line-height: 1.4;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .submit-bar {
+            text-align: center;
+            padding: 8px 0 32px;
+        }
+
+        .btn-start {
+            background: #1a237e;
+            color: white;
+            border: none;
+            padding: 13px 48px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .btn-start:hover { background: #283593; }
+        .btn-start:active { background: #0d1463; transform: scale(0.98); }
+    </style>
+</head>
+<body>
+    <header>Inflation Simulation — Parameter Setup</header>
+    <div class="container">
+        <form method="POST" action="/run">
+            <div class="grid">
+                {% for section in sections %}
+                <div class="card">
+                    <h2>{{ section.title }}</h2>
+                    {% for field in section.fields %}
+                    <div class="field {% if field.type == 'bool' %}bool-field{% endif %}">
+                        {% if field.type == 'bool' %}
+                            <input type="checkbox"
+                                   name="{{ field.form_name }}"
+                                   id="{{ field.form_name }}"
+                                   {% if field.default %}checked{% endif %}>
+                            <label for="{{ field.form_name }}">
+                                {{ field.name }}
+                                {% if field.tooltip %}
+                                <span class="tip" data-tip="{{ field.tooltip }}">?</span>
+                                {% endif %}
+                            </label>
+                        {% else %}
+                            <label for="{{ field.form_name }}">
+                                {{ field.name }}
+                                {% if field.tooltip %}
+                                <span class="tip" data-tip="{{ field.tooltip }}">?</span>
+                                {% endif %}
+                            </label>
+                            {% if field.type == 'list' %}
+                                <select name="{{ field.form_name }}" id="{{ field.form_name }}">
+                                    {% for option in field.default %}
+                                    <option value="{{ option }}">{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% elif field.type in ['int', 'float'] %}
+                                <input type="number"
+                                       name="{{ field.form_name }}"
+                                       id="{{ field.form_name }}"
+                                       value="{{ field.default }}"
+                                       {% if field.type == 'int' %}step="1"{% else %}step="any"{% endif %}>
+                            {% else %}
+                                <input type="text"
+                                       name="{{ field.form_name }}"
+                                       id="{{ field.form_name }}"
+                                       value="{{ field.default }}">
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="submit-bar">
+                <button type="submit" class="btn-start">&#9654; Start Simulation</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
