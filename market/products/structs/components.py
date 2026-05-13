@@ -62,7 +62,7 @@ class ComponentDict:
         """
         total = 0
         for product, weight in self._components.items():
-            total += product.findTotalCost() * weight
+            total += product.findSupplyChainCost() * weight
         return total
     
     def getTotalPrice(self) -> float:

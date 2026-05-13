@@ -11,8 +11,6 @@ class ConsumerProduct(Composite):
 
     def __init__(self, name : str = None, unit_cost : float = 0, components : ComponentDict = None, **kwargs) -> None:
         super().__init__(name, unit_cost, kwargs["num_preferred_components"], components)
-        if name is None:
-            self.setName(self.generateName())
         ConsumerProduct._existing.append(self)
 
     def deriveRawMaterialComposition(self) -> dict:

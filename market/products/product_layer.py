@@ -20,6 +20,10 @@ class Layer:
         self.connection = SymmetricalConnection(self, parent)
         self.setParentLayer(parent)
 
+    def wireGlobals(self, global_materials : list) -> None:
+        for product in self.products:
+            product.setGlobalMaterials(global_materials)
+
     def makeDecisions(self) -> None:
         """Each product in the layer makes decisions and transactions based on its behaviour."""
         for product in self.products:
@@ -28,3 +32,5 @@ class Layer:
     def getSize(self) -> int:
         return len(self.products)
     
+    def getMembers(self) -> list[AnyProduct]:
+        return self.products

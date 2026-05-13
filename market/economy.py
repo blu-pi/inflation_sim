@@ -45,7 +45,6 @@ class Economy:
             material_type : AnyProduct
             material_args = node_args[arg_key].conts
             layer_size = material_args["layer_size"]
-            material_type.class_args = material_args #is needed?
             layer_members : list[AnyProduct] = [] 
             #print("{} given args : {}".format(material_type, material_args)) #DEBUG
 
@@ -68,11 +67,16 @@ class Economy:
         consumer_layer : Layer = self.layers[ConsumerProduct]
         processed_layer : Layer = self.layers[ProcessedMaterial]
         raw_layer : Layer = self.layers[RawMaterial]
+        global_layer : Layer = self.layers[GlobalMaterial]
 
         consumer_layer.connect(processed_layer)
         processed_layer.connect(raw_layer)
+
         if self.sim_args["use_globals"]:
-            GlobalMaterial.publishGlobalProducts() 
+            global_materials = global_layer.products
+            for product_type, layer in self.layers.items():
+                if product_type is not GlobalMaterial:
+                    layer.wireGlobals(global_materials)
 
         self.graph = Graph(consumer_layer)
 

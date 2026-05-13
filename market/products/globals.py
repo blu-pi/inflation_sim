@@ -16,17 +16,7 @@ class GlobalMaterial(Product):
 
     def __init__(self, name : str = None, unit_cost : float = 0, **kwargs) -> None:
         super().__init__(name, unit_cost)
-        if name is None:
-            self.setName(self.generateName())
         GlobalMaterial._existing.append(self)
-
-    @staticmethod
-    def publishGlobalProducts() -> None:
-        """
-        Publishes existance of crteated global products to market. 
-        This is necessary because they are components of all other products and thus must be 'known' to them.
-        """
-        Product.global_members = GlobalMaterial.getAll()
 
     @staticmethod
     def getLayerName() -> str:
