@@ -12,17 +12,14 @@ class GlobalMaterial(Product):
 
     LAYER_NUM = 0
     NAMES = ["Energy", "Labour"] #TODO move to txt file and actually use it.
-    _existing = []
 
     def __init__(self, name : str = None, unit_cost : float = 0, **kwargs) -> None:
         super().__init__(name, unit_cost)
-        GlobalMaterial._existing.append(self)
+
+    def getLayerMembers(self) -> list['GlobalMaterial']:
+        return self.layer.getMembers()
 
     @staticmethod
     def getLayerName() -> str:
         return "Global"
-    
-    @staticmethod
-    def getAll() -> list:
-        return GlobalMaterial._existing
         

@@ -24,6 +24,14 @@ class Layer:
         for product in self.products:
             product.setGlobalMaterials(global_materials)
 
+    def wireMembers(self) -> None:
+        """Pass relevant info to all members post-creation"""
+        i = 0
+        for product in self.products:
+            product._id = i
+            product.layer = self
+            i += 1
+
     def makeDecisions(self) -> None:
         """Each product in the layer makes decisions and transactions based on its behaviour."""
         for product in self.products:

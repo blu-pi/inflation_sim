@@ -7,11 +7,12 @@ from market.products.structs.components import ComponentDict
 class ConsumerProduct(Composite):
 
     LAYER_NUM = 3
-    _existing = []
 
     def __init__(self, name : str = None, unit_cost : float = 0, components : ComponentDict = None, **kwargs) -> None:
         super().__init__(name, unit_cost, kwargs["num_preferred_components"], components)
-        ConsumerProduct._existing.append(self)
+
+    def getLayerMembers(self) -> list['ConsumerProduct']:
+        return self.layer.getMembers()
 
     def deriveRawMaterialComposition(self) -> dict:
         """
@@ -36,7 +37,3 @@ class ConsumerProduct(Composite):
     @staticmethod
     def getLayerName() -> str:
         return "Consumer"
-    
-    @staticmethod
-    def getAll() -> list:
-        return ConsumerProduct._existing

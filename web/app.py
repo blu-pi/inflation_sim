@@ -17,7 +17,6 @@ from market.input.sim_args import (
 from market.products.base import Product
 from market.products.consumer_goods import ConsumerProduct
 from market.products.globals import GlobalMaterial
-from market.products.processed import ProcessedMaterial
 from market.products.raw_materials import RawMaterial
 
 app = Flask(__name__)
@@ -98,8 +97,6 @@ def _serialize_graph(graph: Graph, global_products: list = None) -> tuple[str, d
 
 def _reset_products() -> None:
     global _economy, _step_count, _use_globals
-    for cls in (RawMaterial, ProcessedMaterial, ConsumerProduct, GlobalMaterial):
-        cls._existing.clear()
     Product.total_created = 0
     Economy.layers = Economy.LAYER_ARGS.copy()
     _economy = None
@@ -160,7 +157,7 @@ def run_simulation():
     global _economy
     _economy = Economy(arg_dicts)
     _use_globals = arg_dicts["sim_args"].conts.get("use_globals", False)
-    global_products = GlobalMaterial.getAll() if _use_globals else []
+    global_products = _economy.layers[GlobalMaterial].getMembers() if _use_globals else []
     _graph_json, _node_map = _serialize_graph(_economy.graph, global_products)
     return redirect(url_for('simulation'))
 
@@ -264,7 +261,7 @@ def api_globals():
         'active': True,
         'globals': [
             {'id': g.getDisplayName(), 'name': g.name, 'unit_cost': g.unit_cost}
-            for g in GlobalMaterial.getAll()
+            for g in _economy.layers[GlobalMaterial].getMembers()
         ]
     })
 

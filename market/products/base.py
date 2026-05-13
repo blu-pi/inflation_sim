@@ -1,5 +1,10 @@
 
+from typing import TYPE_CHECKING
+
 from market.products.behaviour.strategy import Strategy, SimpleSupplySideStrategy
+
+if TYPE_CHECKING:
+    from market.products.product_layer import Layer
 
 class Product:
     """Essentially abstract."""
@@ -13,9 +18,11 @@ class Product:
         """
         self.name = name
         self.unit_cost = unit_cost
-        self.global_members = []
         self.setStrategy(strategy)
-        self._id = len(self._existing)
+
+        self.global_members = [] #wired soon after creation
+        self._id = None #wired soon after creation
+        self.layer : Layer = None #wired soon after creation       
         self.sale_price = None
         Product.total_created += 1
     
@@ -41,6 +48,10 @@ class Product:
     
     def setUnitCost(self, cost : float) -> None:
         self.unit_cost = cost
+
+    def getId(self) -> int:
+        """Get ID unique to products within their layer."""
+        return self._id
 
     def findSupplyChainCost(self) -> float:
         """Only called by method with same name from child class. Acts as base case for recursion."""

@@ -55,7 +55,9 @@ class Economy:
                 self.num_products += 1
 
             #Replace values stored in class attr. so it stores created Layer objs.
-            self.layers.update({material_type : Layer(layer_name, layer_members.copy())}) 
+            layer : Layer = Layer(layer_name, layer_members.copy())
+            layer.wireMembers() #gives each an id unique to other members in their layer
+            self.layers.update({material_type : layer}) 
 
 
     def connectAllLayers(self) -> None:
