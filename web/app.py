@@ -8,6 +8,7 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from market.analytics.events import AttributeChange, ChangeEventType
 from market.economy import Economy
 from market.graph import Graph
 from market.input.sim_args import (
@@ -209,7 +210,15 @@ def update_weights(node_id):
     if not updates:
         return jsonify({'error': 'No valid component weights provided'}), 400
 
+    old_weights = {comp: product.components.getWeight(comp) for comp in updates}
     product.components.updateWeights(updates)
+
+    for comp, new_w in updates.items():
+        _economy.change_log.append(
+            AttributeChange(_economy.current_time_step, ChangeEventType.WEIGHT_CHANGED,
+                            product.name, product.layer.layer_name,
+                            old_weights[comp], new_w, comp.name)
+        )
 
     weights = product.components.getNormalisedWeights()
     return jsonify({'components': {c.getDisplayName(): round(w, 4) for c, w in weights.items()}})

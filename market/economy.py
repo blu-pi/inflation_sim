@@ -31,6 +31,8 @@ class Economy:
         self.sim_args = arg_dicts["sim_args"].conts
         self.layers = Economy.LAYER_ARGS.copy()
         self.num_products = 0
+        self.current_time_step: int = 0
+        self.change_log: list = []
         #TODO handle args for abstract product types (if even needed)
         self.createLayers(arg_dicts)
         self.connectAllLayers()
@@ -57,7 +59,7 @@ class Economy:
             #Replace values stored in class attr. so it stores created Layer objs.
             layer : Layer = Layer(layer_name, layer_members.copy())
             layer.wireMembers() #gives each an id unique to other members in their layer
-            self.layers.update({material_type : layer}) 
+            self.layers.update({material_type : layer})
 
 
     def connectAllLayers(self) -> None:
@@ -85,8 +87,9 @@ class Economy:
 
     def runNextTimeStep(self) -> None:
         """Runs the next time step of the economy. Each layer makes decisions and transactions sequentially."""
+        self.current_time_step += 1
         #for supply side time-steps, run layers in creation order. For demand side time-steps, run layers in reverse creation order. For now, only supply side time-steps are implemented.
         for layer in self.layers.values():
             if isinstance(layer.products[0], GlobalMaterial):
-                continue #globals aren't 'intelligent' and don't ever make 'decisions'. 
+                continue #globals aren't 'intelligent' and don't ever make 'decisions'.
             layer.makeDecisions()

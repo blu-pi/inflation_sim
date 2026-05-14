@@ -4,13 +4,12 @@ from market.economy import Economy
 
 class Simulation:
     """
-    Responsible for running the economy through time-steps.
+    Responsible for running economies through time-steps.
     """
 
-    def __init__(self, economy : Economy, config : dict):
-        self.economy = economy
+    def __init__(self, economies : list[Economy], config : dict):
+        self.economies = economies
         self.config = config
-        self.current_time_step = 0
 
     def runNextLayer(self) -> None:
         """Calls Economy and runs the next layer's decisions and transactions."""
@@ -22,4 +21,3 @@ class Simulation:
         Each time step generates a new State of the economy.
         """
         self.economy.runNextTimeStep()
-        self.current_time_step += 1
