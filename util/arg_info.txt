@@ -1,7 +1,6 @@
 
 #section sim_args 
 #argument use_globals: "True/Flase, include global materials in simulation. Global materials are products used as components for every composite product. E.g. eletricity"
-#argument run_composition_test: "True/Flase, run CLI-based test allowing the user to probe the raw_material composition of consumer products once simulation is created."
 
 #section product_args
 

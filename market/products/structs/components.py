@@ -1,7 +1,7 @@
 import warnings
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from market.products.base import Product
+    from market.products.types import AnyComposite, AnyProduct
 
 
 class ComponentDict:
@@ -17,12 +17,12 @@ class ComponentDict:
         proportionally to existing ones. It's very easy using absolute values.
     """
 
-    def __init__(self, products : list['Product']) -> None:
-        self._components = {}
+    def __init__(self, products : list['AnyProduct']) -> None:
+        self._components : dict[AnyProduct, float] = {}
         for prod in products:
             self._components.update({prod : 1})
 
-    def changeWeight(self, target : 'Product', new_weight : float) -> None:
+    def changeWeight(self, target : 'AnyProduct', new_weight : float) -> None:
         assert(new_weight > 0)
         if target not in self._components.keys():
             warnings.warn("Attempted to change weight of a product not found in component dict! Likely unwanted behaviour")
@@ -62,7 +62,7 @@ class ComponentDict:
         """
         total = 0
         for product, weight in self._components.items():
-            total += product.findTotalCost() * weight
+            total += product.findSupplyChainCost() * weight
         return total
     
     def getTotalPrice(self) -> float:
@@ -79,17 +79,17 @@ class ComponentDict:
         return total
 
     #potential rename to for clarity?
-    def getDict(self) -> dict['Product' : float]:
+    def getDict(self) -> dict['AnyProduct' : float]:
         return self._components
 
-    def getAll(self) -> list:
+    def getAll(self) -> list['AnyProduct']:
         return list(self._components.keys())
     
-    def getWeight(self, component : 'Product') -> float:
+    def getWeight(self, component : 'AnyProduct') -> float:
         return self._components[component]
     
-    def getComponentLayers(self) -> list:
-        return [prod.LAYER_NUM for prod in self.getComponents()]
+    def getComponentLayerNums(self) -> list:
+        return [prod.LAYER_NUM for prod in self.getAll()]
     
-    def contains(self, component : 'Product') -> bool:
+    def contains(self, component : 'AnyProduct') -> bool:
         return component in self._components.keys()

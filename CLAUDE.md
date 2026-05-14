@@ -26,13 +26,17 @@ Tests are git-ignored and not part of a test framework — they are standalone s
 The simulation models a three-layer supply chain economy:
 
 ```
-GlobalMaterial    (layer 0)  — Energy, Labour (implicit processing cost)
+GlobalMaterial    (layer 0)  — Energy, Labour (implicit cost shared by every product)
 RawMaterial       (layer 1)  — base inputs
 ProcessedMaterial (layer 2)  — made from RawMaterials (Composite)
 ConsumerProduct   (layer 3)  — made from ProcessedMaterials (Composite)
 ```
 
-`Economy` ([market/economy.py](market/economy.py)) is the top-level orchestrator. It creates all product instances, organizes them into `Layer` objects, then calls `connectAllLayers()` which runs `SymmetricalConnection` between adjacent layers. The resulting `Graph` is stored as `self.graph` for the web layer to consume. `Economy.runNextTimeStep()` advances all non-Global layers sequentially; GlobalMaterial is always skipped.
+`GlobalMaterial` instances are deliberately not connected to other nodes by edges — they are not direct components of any specific product. Instead, every non-Global product pays their combined `unit_cost` as an implicit processing cost via `findGlobalCost()`. GlobalMaterials have no `Strategy` and never make decisions, but they influence the decisions of all other products by raising their total cost.
+
+`Economy` ([market/economy.py](market/economy.py)) is the top-level orchestrator. It creates all product instances, organizes them into `Layer` objects, then calls `connectAllLayers()` which runs `SymmetricalConnection` between adjacent layers and (when `use_globals` is enabled) calls `layer.wireGlobals()` on every non-Global layer. The resulting `Graph` is stored as `self.graph` for the web layer to consume. `Economy.runNextTimeStep()` advances all non-Global layers sequentially; GlobalMaterial is always skipped.
+
+`Layer` ([market/products/product_layer.py](market/products/product_layer.py)) manages a collection of products. After creation, `Layer.wireMembers()` assigns each product its `_id` (unique within the layer) and a back-reference to the `Layer` instance via `product.layer`. When globals are active, `Layer.wireGlobals(global_materials)` calls `product.setGlobalMaterials()` on every member, giving each product its list of `GlobalMaterial` instances as an instance attribute. Products access their layer-mates via `self.layer.getMembers()`.
 
 `SymmetricalConnection` ([market/products/structs/layer_connection.py](market/products/structs/layer_connection.py)) enforces that every parent-layer product appears in at least one child's components, and that each child has approximately `num_preferred_components` parents. It randomly assigns connections while tracking frequency to stay balanced.
 
@@ -44,7 +48,7 @@ ConsumerProduct   (layer 3)  — made from ProcessedMaterials (Composite)
 
 Each `Product` holds a `Strategy` instance assigned in `__init__`. The default is `SimpleSupplySideStrategy` ([market/products/behaviour/strategy.py](market/products/behaviour/strategy.py)), which wraps `SimpleSupply` and no demand behaviour. On each time step, `Layer.makeDecisions()` calls `product.applyStrategy()` → `strategy.apply()` → `supply_behaviour.calcSupplyPrice()` → `product.publishSalePrice(price)`.
 
-- `SimpleSupply.calcSupplyPrice()` returns `product.findTotalCost()` — unit_cost + component prices + global material costs.
+- `SimpleSupply.calcSupplyPrice()` returns `product.findTotalCost()` — unit_cost + component prices + global material costs (summed via `findGlobalCost()`, which iterates `product.global_members`).
 - `DemandBehaviour` / `SimpleDemand` exist but are not yet wired in (`makePurchaseDecision` is a stub).
 - `AdaptiveStrategy` is a placeholder for future goal-oriented / learning behaviour.
 
@@ -56,7 +60,7 @@ Each `Product` holds a `Strategy` instance assigned in `__init__`. The default i
 
 Each `ArgDict` subclass (in [market/input/sim_args.py](market/input/sim_args.py)) holds a `DEFAULTS` dict. User input is merged with `|` (Python 3.9+), so any unset field falls back to its default. The web form auto-generates fields from the type of each default value (bool → checkbox, int/float → number input, list → select, str → text). Help text is loaded from [util/arg_info.txt](util/arg_info.txt) and shown as hover tooltips.
 
-**Multi-run state:** Product subclasses accumulate instances in class-level `_existing` lists. `_reset_products()` in `web/app.py` clears these and resets `Product.total_created` and `_use_globals` before each run so IDs restart cleanly.
+**Multi-run state:** Products no longer use class-level `_existing` lists; instances are tracked only within the `Layer` objects owned by `Economy`. `_reset_products()` in `web/app.py` resets `Product.total_created`, clears `Economy.layers` back to `LAYER_ARGS`, and nulls `_economy` / `_step_count` / `_use_globals` before each run so IDs restart cleanly.
 
 ## Web Layer (`web/`)
 
@@ -70,7 +74,7 @@ Flask routes:
 - `POST /api/timestep` — advances simulation one step; returns `{prices, step}` where `prices` maps every node ID to its new `sale_price`
 - `GET /api/globals` — returns `{active: bool, globals: [{id, name, unit_cost}]}`; `active` is true only when `use_globals` was checked at run time
 
-`_serialize_graph()` maps each product to a vis.js node using `product.getDisplayName()` as the string ID (format: `"LayerName: {_id}"`). Level is `product.LAYER_NUM` so raw (1) appears near the top and consumer (3) at the bottom of the hierarchical layout. When `use_globals` is true, GlobalMaterial nodes are added at level 0 (above raw) with no edges, and registered in `_node_map` so they can be fetched via `/api/node/<id>`.
+`_serialize_graph()` maps each product to a vis.js node using `product.getDisplayName()` as the string ID (format: `"LayerName: {_id}"`). When `use_globals` is true, GlobalMaterial nodes are added at level 0 with no edges and registered in `_node_map`.
 
 ## Visualization
 
@@ -78,22 +82,20 @@ Flask routes:
 
 The web UI (`simulation.html`) uses **vis.js Network** (CDN) with a hierarchical top-down layout. Clicking a node highlights its edges (incoming=blue, outgoing=green) and populates the sidebar. The toolbar provides Reset View, Export PNG, and **Next Step** (calls `/api/timestep` and updates node labels with the new sale price).
 
-**Sidebar sections on node click:**
-- *Properties* — id, unit_cost, sale_price, units_avail (Raw only), # Components (Composites only)
-- *Components* — bar chart of normalized weights with editable pie chart (Composites only); weights can be changed in absolute or percentage mode and POSTed via `/api/node/<id>/weights`
-- *Raw Material Composition* — read-only pie chart of derived raw-material proportions (Consumer only)
-- *Global Materials* — shown for all non-Global products when `use_globals` is active; lists each GlobalMaterial by name and its `unit_cost`; clicking a name selects that node in the graph and loads its Properties panel
+The sidebar shows node properties, component weights (editable for Composites), raw material composition (Consumer only), and global material costs (when `use_globals` is active).
 
-**Component weight editor (pie chart):**
-- Toggle with the "Pie" button on any Composite's Components section
-- Two input modes: absolute (A column) and percentage (% column); switching between them syncs the other automatically
-- Percentage mode requires the sum to equal 100% (±0.5%) before Apply is accepted
+## In Progress
+
+**Multiple economies / Simulation class**
+The `Simulation` class is being promoted to a first-class controller that manages one or more `Economy` instances and exposes them to the user. Two state-capture mechanisms are planned:
+
+- **Snapshot** — lightweight read of an economy's current state (prices, costs, layer composition). Used for metrics and comparison between points in time. Does not copy or duplicate the economy.
+- **Checkpoint** — deep fork of an existing economy that produces an independent copy. The forked economy can then diverge over subsequent time steps, enabling side-by-side comparison of different intervention scenarios.
 
 ## Known Incomplete Features
 
-- `use_globals` wires `GlobalMaterial` costs into `findTotalCost()` for all products, but globals are not connected via graph edges and do not participate in supply/demand decisions.
 - `units_avail` on `RawMaterial` is stored but not set from `class_args` at construction time (instances always start at 0).
 - `DemandBehaviour` / `SimpleDemand` exist but `makePurchaseDecision` is a stub — demand-side time steps are not implemented.
 - `AdaptiveStrategy` is a placeholder with no logic.
-- `Simulation` class exists but the web layer calls `Economy.runNextTimeStep()` directly.
+- The web layer still calls `Economy.runNextTimeStep()` directly; multi-economy control via `Simulation` is in progress (see above).
 - The old Tkinter UI files (`market/input/setup.py`, `market/input/runtime_ui.py`) are now unused.

@@ -1,14 +1,13 @@
-import warnings
+
+from typing import TYPE_CHECKING
 
 from market.products.behaviour.strategy import Strategy, SimpleSupplySideStrategy
 
+if TYPE_CHECKING:
+    from market.products.product_layer import Layer
+
 class Product:
     """Essentially abstract."""
-
-    LAYER_NUM = 0
-    total_created = 0
-    class_args = None #args that apply to all class members, can be overriden by individual args
-    global_members = []
 
     def __init__(self, name : str = None, unit_cost : float = 0, strategy : Strategy = None) -> None:
         """
@@ -20,10 +19,16 @@ class Product:
         self.name = name
         self.unit_cost = unit_cost
         self.setStrategy(strategy)
-        self._id = len(self._existing)
+
+        self.global_members = [] #wired soon after creation
+        self._id = None #wired soon after creation
+        self.layer : Layer = None #wired soon after creation       
         self.sale_price = None
         Product.total_created += 1
     
+    def setGlobalMaterials(self, global_materials : list) -> None:
+        self.global_members = global_materials
+
     def setStrategy(self, strategy : Strategy) -> None:
         """Use default (SimpleSupplySideStrategy) if no strategy is provided."""
         self.strategy : Strategy = SimpleSupplySideStrategy(self) if strategy is None else strategy
@@ -40,31 +45,21 @@ class Product:
 
     def setName(self, new_name : str) -> None:
         self.name = new_name
-
-    def generateName(self) -> str:
-        return self.getLayerName() + str(self._id)
     
     def setUnitCost(self, cost : float) -> None:
         self.unit_cost = cost
 
+    def getId(self) -> int:
+        """Get ID unique to products within their layer."""
+        return self._id
+
     def findSupplyChainCost(self) -> float:
-        """
-        THIS IS A TOOL FOR DATA ANALYSIS ONLY!
-        Calculates total cost of production for this products entire supply chain.
-        total_cost = unit_cost + component_cost + cost of global products (Not yet implemented).
-        """
-        #I should totally just get rid of this
-        total_cost : float = self.unit_cost
-        if self.hasComponents():
-            warnings.warn("Expensive and unnessacary call to find total costs for components of a composite product. This better not be call during simulation runtime >=/.")
-            total_cost += self.getComponentCost()
-        #global product costs not implemented yet, but would be added here.
-        return total_cost
-    
+        """Only called by method with same name from child class. Acts as base case for recursion."""
+        return self.findTotalCost()
+
     def findTotalCost(self) -> float:
+        """Return total cost of production of this product."""
         total_cost : float = self.unit_cost
-        if self.hasComponents():
-            total_cost += self.getComponentPrice()
         if self not in self.global_members:
             total_cost += self.findGlobalCost()
         return total_cost
@@ -82,15 +77,8 @@ class Product:
     def hasComponents(self) -> bool:
         return False
     
-    def getAllArgs(self) -> dict:
-        return Product.class_args
-
-    def getId(self) -> int:
-        """ID of object within its Layer. Ids are shared across layers"""
-        return self._id
-    
     def getDisplayName(self) -> str:
-        return "{}: {}".format(self.getLayerName(), self.getId())
+        return self.name
 
     #experimental
     def __repr__(self) -> str:

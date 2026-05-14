@@ -11,32 +11,15 @@ class GlobalMaterial(Product):
     """
 
     LAYER_NUM = 0
-    NAMES = ["Energy", "Labour"]
-    _existing = []
-    class_args = None #args that apply to all class members, can be overriden by individual args
+    NAMES = ["Energy", "Labour"] #TODO move to txt file and actually use it.
 
     def __init__(self, name : str = None, unit_cost : float = 0, **kwargs) -> None:
         super().__init__(name, unit_cost)
-        if name is None:
-            self.setName(self.generateName())
-        GlobalMaterial._existing.append(self)
 
-    @staticmethod
-    def publishGlobalProducts() -> None:
-        """
-        Publishes existance of crteated global products to market. 
-        This is necessary because they are components of all other products and thus must be 'known' to them.
-        """
-        Product.global_members = GlobalMaterial.getAll()
+    def getLayerMembers(self) -> list['GlobalMaterial']:
+        return self.layer.getMembers()
 
     @staticmethod
     def getLayerName() -> str:
         return "Global"
-    
-    @staticmethod
-    def getAll() -> list:
-        return GlobalMaterial._existing
-
-    def getAllArgs(self) -> dict:
-        return super().getAllArgs() | self.class_args
         
