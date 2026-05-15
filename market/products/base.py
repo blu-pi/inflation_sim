@@ -24,7 +24,6 @@ class Product:
         self._id = None #wired soon after creation
         self.layer : Layer = None #wired soon after creation       
         self.sale_price = None
-        Product.total_created += 1
     
     def setGlobalMaterials(self, global_materials : list) -> None:
         self.global_members = global_materials

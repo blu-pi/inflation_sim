@@ -34,7 +34,7 @@ class ComponentDict:
         for product, weight in new.items():
             self.changeWeight(product, weight)
 
-    def getNormalisedWeights(self, use_fractions : bool = False) -> dict:
+    def getNormalisedWeights(self, use_fractions : bool = False) -> dict['AnyProduct',float]:
         """
         Return value is a dict and NOT a ComponentDict
         This is to ensure normalised values are never used outside of data analysis
@@ -47,7 +47,7 @@ class ComponentDict:
                 out.update({product : weight / weight_total})
             return out
         else:
-            return self._components
+            return self._components.copy()
     
     def hasUniformWeights(self) -> bool:
         #small optimisation possible for potentially large ._contents dicts. Not significant for values <100 for sure.

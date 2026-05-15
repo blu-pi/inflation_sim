@@ -10,6 +10,7 @@ from market.products.processed import ProcessedMaterial
 from market.products.product_layer import Layer
 from market.products.raw_materials import RawMaterial
 from market.products.types import AnyComposite, AnyProduct
+from market.analytics.snapshot import EconomySnapshot
 
 
 class Economy:
@@ -29,12 +30,17 @@ class Economy:
 
     def __init__(self, arg_dicts : dict[str,ArgDict]) -> None:
         self.sim_args = arg_dicts["sim_args"].conts
+        self.name = self.sim_args["economy_name"]
         self.layers = Economy.LAYER_ARGS.copy()
         self.num_products = 0
+        self.current_time_step: int = 0
+        self.change_log: list = []
+        self.id : int = None #assigned by Simulation when registered
         #TODO handle args for abstract product types (if even needed)
         self.createLayers(arg_dicts)
         self.connectAllLayers()
         self.layers : dict[AnyProduct, Layer]
+        self.snapshots : dict[int,EconomySnapshot] = {}
 
     def createLayers(self, node_args : dict[str,ArgDict]) -> None:
         """
@@ -57,7 +63,7 @@ class Economy:
             #Replace values stored in class attr. so it stores created Layer objs.
             layer : Layer = Layer(layer_name, layer_members.copy())
             layer.wireMembers() #gives each an id unique to other members in their layer
-            self.layers.update({material_type : layer}) 
+            self.layers.update({material_type : layer})
 
 
     def connectAllLayers(self) -> None:
@@ -85,8 +91,17 @@ class Economy:
 
     def runNextTimeStep(self) -> None:
         """Runs the next time step of the economy. Each layer makes decisions and transactions sequentially."""
+        self.current_time_step += 1
         #for supply side time-steps, run layers in creation order. For demand side time-steps, run layers in reverse creation order. For now, only supply side time-steps are implemented.
         for layer in self.layers.values():
             if isinstance(layer.products[0], GlobalMaterial):
-                continue #globals aren't 'intelligent' and don't ever make 'decisions'. 
+                continue #globals aren't 'intelligent' and don't ever make 'decisions'.
             layer.makeDecisions()
+    
+    def snapshot(self) -> EconomySnapshot:
+        """
+        Returns a snapshot of economy analytics at the current time step.   
+        """
+        snapshot = EconomySnapshot(self,self.current_time_step)
+        self.snapshots.update({self.current_time_step : snapshot})
+        return snapshot
