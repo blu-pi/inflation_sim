@@ -1,5 +1,8 @@
 
+import statistics
 from typing import TYPE_CHECKING
+
+from market.products.globals import GlobalMaterial
 
 if TYPE_CHECKING:
     from market.economy import Economy
@@ -42,15 +45,33 @@ class LayerStats:
         self.max_price = max_price
         self.mean_unit_cost = mean_unit_cost
 
+    @classmethod
+    def createFromList(cls, records: list[ProductRecord]) -> 'LayerStats':
+        prices = [r.sale_price for r in records]
+        return cls(
+            layer_name=records[0].layer_name,
+            product_count=len(records),
+            mean_price=statistics.mean(prices),
+            std_dev_price=statistics.pstdev(prices),
+            min_price=min(prices),
+            max_price=max(prices),
+            mean_unit_cost=statistics.mean(r.unit_cost for r in records),
+        )
+
 
 class EconomySnapshot:
     """
-    Store observable analytics of an economy at the point in time it was created.
+    Store observable analytics of an economy at the time it's snapshotted.
     """
 
-    def __init__(self, economy: Economy, timestamp: int):
+    def __init__(self, economy: 'Economy', timestamp: int):
         self.timestamp = timestamp
+        self.record_dict : dict[str,list[ProductRecord]]= {} #dict[layer_name,list[ProductRecord]]
+        self.layer_insights : dict[str,LayerStats] = {}
         for layer in economy.layers.values():
+            if layer.getMembers() and isinstance(layer.getMembers()[0], GlobalMaterial):
+                continue  #globals don't publish sale_price; mirrors Economy.runNextTimeStep
+            layer_records : list[ProductRecord] = []
             for product in layer.getMembers():
                 component_weights = None
                 if product.hasComponents():
@@ -64,4 +85,9 @@ class EconomySnapshot:
                     unit_cost = product.unit_cost,
                     component_weights = component_weights
                 )
-                
+                layer_records.append(record)
+            layer_name = layer_records[0].layer_name
+            
+            layer_stats = LayerStats.createFromList(layer_records)
+            self.layer_insights.update({layer_name : layer_stats})
+            self.record_dict.update({layer_name : layer_records})

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inflation Simulation &mdash; Timeline</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #1a1a2e;
+            color: #fffffe;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #0f0e17;
+            padding: 0 16px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            border-bottom: 1px solid #2a2a3e;
+        }
+
+        header .title { font-weight: 600; font-size: 1rem; }
+
+        header a, header .btn {
+            color: #c5cae9;
+            text-decoration: none;
+            font-size: 0.82rem;
+            background: #283593;
+            padding: 7px 14px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        header a:hover, header .btn:hover { background: #3949ab; }
+
+        main {
+            flex: 1;
+            padding: 22px;
+            overflow: auto;
+        }
+
+        .sim-wrap {
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #a7a9be;
+        }
+
+        .group-canvas {
+            background: #0f0e17;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            border-left: 5px solid var(--group-color, #5c6bc0);
+            box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid #2a2a3e;
+        }
+
+        .group-name-input {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #fffffe;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-width: 120px;
+            max-width: 240px;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .group-name-input:hover { border-color: #2a2a3e; }
+        .group-name-input:focus {
+            outline: none;
+            border-color: #5c6bc0;
+            background: #1a1a2e;
+        }
+
+        .group-color-swatch {
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 0;
+            background: transparent;
+        }
+        .group-color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+        .group-color-swatch::-webkit-color-swatch { border: 1px solid #2a2a3e; border-radius: 4px; }
+
+        .group-meta {
+            font-size: 0.78rem;
+            color: #a7a9be;
+            margin-left: 4px;
+        }
+
+        .group-controls {
+            margin-left: auto;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .btn-sm {
+            padding: 5px 11px;
+            font-size: 0.78rem;
+            border-radius: 4px;
+            border: 1px solid #3a3a5e;
+            background: #1a1a2e;
+            color: #d0d0e8;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-sm:hover { background: #2a2a4e; }
+
+        .btn-step-all {
+            background: #283593;
+            color: #e8eaf6;
+            border-color: #5c6bc0;
+        }
+        .btn-step-all:hover { background: #3949ab; }
+
+        .timeline-wrap {
+            padding: 14px 16px 16px;
+        }
+
+        .lane {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 8px;
+            min-height: 44px;
+            position: relative;
+        }
+        .lane:last-child { margin-bottom: 0; }
+
+        .lane-label {
+            min-width: 140px;
+            font-size: 0.85rem;
+            color: #d0d0e8;
+            font-weight: 500;
+            padding-right: 12px;
+            border-right: 1px solid #2a2a3e;
+            margin-right: 16px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lane-nodes {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .step-slot {
+            width: 48px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .timeline-node {
+            position: relative;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #2a2a4e;
+            border: 2px solid var(--group-color, #5c6bc0);
+            flex-shrink: 0;
+            cursor: default;
+            transition: transform 0.12s, box-shadow 0.12s;
+        }
+
+        .timeline-node.latest {
+            background: var(--group-color, #5c6bc0);
+            cursor: pointer;
+            box-shadow: 0 0 0 4px rgba(92, 107, 192, 0.18);
+        }
+        .timeline-node.latest:hover {
+            transform: scale(1.18);
+            box-shadow: 0 0 0 6px rgba(92, 107, 192, 0.32);
+        }
+
+        .timeline-node .node-tooltip {
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f0e17;
+            color: #fffffe;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            white-space: nowrap;
+            border: 1px solid #2a2a3e;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 10;
+        }
+        .timeline-node:hover .node-tooltip { opacity: 1; }
+
+        .timeline-edge {
+            height: 2px;
+            background: var(--group-color, #5c6bc0);
+            opacity: 0.45;
+            flex-shrink: 0;
+            width: 22px;
+        }
+        .timeline-edge.empty { background: transparent; }
+        .slot-placeholder {
+            width: 26px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .annot-lane {
+            display: flex;
+            margin-left: 156px;
+            margin-top: -2px;
+            margin-bottom: 6px;
+            min-height: 52px;
+            align-items: flex-start;
+        }
+        .annot-slot {
+            width: 48px;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .snapshot-marker {
+            width: 14px;
+            height: 14px;
+            background: #0f0e17;
+            border: 2px solid #80cbc4;
+            transform: rotate(45deg);
+            cursor: pointer;
+            margin-left: 6px;
+            transition: transform 0.12s, box-shadow 0.12s;
+            position: relative;
+        }
+        .snapshot-marker:hover {
+            transform: rotate(45deg) scale(1.25);
+            box-shadow: 0 0 0 3px rgba(128, 203, 196, 0.28);
+        }
+        .snapshot-marker .annot-tooltip {
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: rotate(-45deg) translateX(-50%);
+            transform-origin: left top;
+            background: #0f0e17;
+            color: #fffffe;
+            padding: 3px 7px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            border: 1px solid #2a2a3e;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .snapshot-marker:hover .annot-tooltip { opacity: 1; }
+
+        .change-anchor {
+            position: absolute;
+            left: 26px;
+            width: 22px;
+            top: 30px;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .change-anchor::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 2px);
+            width: 1px;
+            height: 52px;
+            background: rgba(255, 183, 77, 0.55);
+            pointer-events: none;
+        }
+
+        .change-label {
+            display: inline-block;
+            font-size: 0.65rem;
+            line-height: 1;
+            color: #ffb74d;
+            background: rgba(255, 183, 77, 0.12);
+            border: 1px solid rgba(255, 183, 77, 0.5);
+            border-radius: 8px;
+            padding: 2px 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.12s, color 0.12s;
+            pointer-events: auto;
+        }
+        .change-label:hover { background: rgba(255, 183, 77, 0.28); color: #ffe0b2; }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+        }
+        .modal {
+            background: #0f0e17;
+            border: 1px solid #2a2a3e;
+            border-radius: 8px;
+            width: min(720px, 100%);
+            max-height: 86vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #2a2a3e;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-header .modal-title { font-weight: 600; font-size: 1rem; }
+        .modal-header .modal-sub { font-size: 0.78rem; color: #a7a9be; margin-top: 2px; }
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #a7a9be;
+            font-size: 1.4rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+        }
+        .modal-close:hover { color: #fffffe; }
+        .modal-body {
+            padding: 14px 18px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .snapshot-chart-wrap {
+            position: relative;
+            height: 220px;
+            margin-bottom: 12px;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+        .stats-table th, .stats-table td {
+            padding: 5px 8px;
+            text-align: right;
+            border-bottom: 1px solid #1e1e30;
+            font-variant-numeric: tabular-nums;
+        }
+        .stats-table th { color: #a7a9be; font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.06em; }
+        .stats-table td:first-child, .stats-table th:first-child { text-align: left; color: #d0d0e8; }
+
+        .events-list { list-style: none; }
+        .events-list li {
+            display: flex;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid #1e1e30;
+            font-size: 0.8rem;
+        }
+        .event-type-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            padding: 2px 7px;
+            border-radius: 3px;
+            background: rgba(255, 183, 77, 0.18);
+            color: #ffb74d;
+            border: 1px solid rgba(255, 183, 77, 0.4);
+            flex-shrink: 0;
+            align-self: center;
+        }
+        .event-meta { color: #d0d0e8; flex: 1; }
+        .event-meta .event-target { color: #fffffe; font-weight: 500; }
+        .event-meta .event-vals { color: #a7a9be; font-size: 0.74rem; }
+
+        .lane-meta {
+            margin-left: 16px;
+            font-size: 0.72rem;
+            color: #6a6a8a;
+            white-space: nowrap;
+        }
+
+        .step-axis {
+            display: flex;
+            margin-left: 156px;
+            margin-top: 8px;
+            font-size: 0.65rem;
+            color: #6a6a8a;
+            user-select: none;
+        }
+        .step-axis-tick {
+            width: 48px;
+            text-align: left;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <span class="title">Inflation Simulation &mdash; Timeline</span>
+        <a href="/">+ New Economy</a>
+    </header>
+
+    <main id="main">
+        <div class="empty-state" id="empty-state" style="display:none">
+            <p style="font-size:0.95rem">No economies yet. Click <strong>+ New Economy</strong> to begin.</p>
+        </div>
+        <div id="groups-container"></div>
+    </main>
+
+    <div id="modal-root"></div>
+
+    <script>
+        const NODE_WIDTH = 26;
+        const EDGE_WIDTH = 22;
+
+        let _state = { groups: [] };
+
+        function loadSimulation() {
+            fetch('/api/simulation')
+                .then(r => r.json())
+                .then(data => {
+                    _state = data;
+                    render();
+                });
+        }
+
+        function render() {
+            const container = document.getElementById('groups-container');
+            const empty = document.getElementById('empty-state');
+
+            if (!_state.groups || _state.groups.length === 0) {
+                container.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+
+            const maxStep = Math.max(0, ..._state.groups.flatMap(g =>
+                g.members.map(m => m.current_step)
+            ));
+
+            container.innerHTML = '<div class="sim-wrap">' +
+                _state.groups.map(group => renderGroup(group, maxStep)).join('') +
+                renderSharedAxis(maxStep) +
+                '</div>';
+        }
+
+        function renderSharedAxis(maxStep) {
+            if (maxStep < 1) return '';
+            let ticks = '';
+            for (let t = 0; t <= maxStep; t++) {
+                ticks += `<div class="step-axis-tick">t${t}</div>`;
+            }
+            return `<div class="step-axis">${ticks}</div>`;
+        }
+
+        function renderGroup(group, maxStep) {
+            const lanes = group.members.map(m => renderLane(group, m, maxStep)).join('');
+            return `
+                <div class="group-canvas" style="--group-color:${escapeAttr(group.color)}" data-group-id="${group.id}">
+                    <div class="group-header">
+                        <input type="color" class="group-color-swatch"
+                               value="${escapeAttr(group.color)}"
+                               oninput="onColorChange(${group.id}, this.value)"
+                               title="Group display color">
+                        <input type="text" class="group-name-input"
+                               value="${escapeAttr(group.name)}"
+                               onchange="onNameChange(${group.id}, this.value)"
+                               title="Click to rename group">
+                        <span class="group-meta">${group.members.length} ${group.members.length === 1 ? 'economy' : 'economies'}</span>
+                        <div class="group-controls">
+                            <button class="btn-sm" onclick="addEconomyToGroup(${group.id})" title="Create a new economy and add it to this group">+ Add Economy</button>
+                            <button class="btn-sm btn-step-all" onclick="stepGroup(${group.id})" title="Advance all members by 1 step">&#9658; Step All</button>
+                        </div>
+                    </div>
+                    <div class="timeline-wrap">${lanes}</div>
+                </div>
+            `;
+        }
+
+        function renderLane(group, economy, maxStep) {
+            let slots = '';
+            for (let t = 0; t <= maxStep; t++) {
+                const present = t <= economy.current_step;
+                const isLatest = present && t === economy.current_step;
+                const drawEdge = t < economy.current_step;
+                let nodeHtml;
+                if (present) {
+                    const cls = 'timeline-node' + (isLatest ? ' latest' : '');
+                    const onclick = isLatest ? `onclick="openEconomy(${economy.id})"` : '';
+                    nodeHtml = `<div class="${cls}" ${onclick}>
+                        <span class="node-tooltip">${escapeAttr(economy.name)} &middot; step ${t}${isLatest ? ' (open)' : ''}</span>
+                    </div>`;
+                } else {
+                    nodeHtml = '<div class="slot-placeholder"></div>';
+                }
+                const edgeHtml = t < maxStep
+                    ? `<div class="timeline-edge ${drawEdge ? '' : 'empty'}"></div>`
+                    : '';
+                slots += `<div class="step-slot">${nodeHtml}${edgeHtml}</div>`;
+            }
+            const annot = renderAnnotations(economy, maxStep);
+            return `
+                <div class="lane">
+                    <span class="lane-label" title="${escapeAttr(economy.name)}">${escapeAttr(economy.name)}</span>
+                    <div class="lane-nodes">${slots}</div>
+                    <span class="lane-meta">step ${economy.current_step}</span>
+                </div>
+                ${annot}
+            `;
+        }
+
+        function renderAnnotations(economy, maxStep) {
+            const snapshotSteps = new Set(economy.snapshot_steps || []);
+            const changeCounts = economy.change_counts || {};
+            const hasAny = snapshotSteps.size > 0 || Object.keys(changeCounts).length > 0;
+            if (!hasAny) return '';
+            let slots = '';
+            for (let t = 0; t <= maxStep; t++) {
+                let parts = '';
+                if (snapshotSteps.has(t)) {
+                    parts += `<div class="snapshot-marker" onclick="openSnapshot(${economy.id}, ${t})" title="Snapshot at step ${t}">
+                        <span class="annot-tooltip">snapshot t${t}</span>
+                    </div>`;
+                }
+                const count = changeCounts[t] || changeCounts[String(t)];
+                if (count) {
+                    parts += `<div class="change-anchor">
+                        <span class="change-label" onclick="openChanges(${economy.id}, ${t}, '${escapeAttr(economy.name)}')">${count} change${count === 1 ? '' : 's'}</span>
+                    </div>`;
+                }
+                slots += `<div class="annot-slot">${parts}</div>`;
+            }
+            return `<div class="annot-lane">${slots}</div>`;
+        }
+
+        function escapeAttr(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function openEconomy(id) {
+            window.location.href = '/economy/' + id;
+        }
+
+        function addEconomyToGroup(groupId) {
+            window.location.href = '/?group_id=' + groupId;
+        }
+
+        function stepGroup(groupId) {
+            fetch('/api/group/' + groupId + '/timestep', { method: 'POST' })
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.error) { alert(resp.error); return; }
+                    loadSimulation();
+                });
+        }
+
+        let _colorDebounce = {};
+        function onColorChange(groupId, color) {
+            clearTimeout(_colorDebounce[groupId]);
+            _colorDebounce[groupId] = setTimeout(() => {
+                fetch('/api/group/' + groupId + '/color', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ color })
+                }).then(() => loadSimulation());
+            }, 200);
+        }
+
+        function onNameChange(groupId, name) {
+            if (!name.trim()) { loadSimulation(); return; }
+            fetch('/api/group/' + groupId + '/name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            }).then(() => loadSimulation());
+        }
+
+        /* ---- Modal infrastructure ---- */
+
+        let _modalChart = null;
+
+        function openModal({ title, sub, bodyHtml, onMounted }) {
+            closeModal();
+            const root = document.getElementById('modal-root');
+            root.innerHTML = `
+                <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+                    <div class="modal">
+                        <div class="modal-header">
+                            <div>
+                                <div class="modal-title">${title}</div>
+                                ${sub ? `<div class="modal-sub">${sub}</div>` : ''}
+                            </div>
+                            <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
+                        </div>
+                        <div class="modal-body">${bodyHtml}</div>
+                    </div>
+                </div>
+            `;
+            if (onMounted) onMounted();
+        }
+
+        function closeModal() {
+            const root = document.getElementById('modal-root');
+            if (_modalChart) { _modalChart.destroy(); _modalChart = null; }
+            root.innerHTML = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        /* ---- Snapshot popup ---- */
+
+        function openSnapshot(economyId, step) {
+            fetch('/api/economy/' + economyId + '/snapshot/' + step)
+                .then(r => r.json())
+                .then(snapshot => {
+                    if (snapshot.error) { alert(snapshot.error); return; }
+                    renderSnapshotModal(economyId, snapshot);
+                });
+        }
+
+        function renderSnapshotModal(economyId, snapshot) {
+            const economy = findEconomy(economyId);
+            const layerEntries = Object.entries(snapshot.layer_insights);
+
+            const tableRows = layerEntries.map(([_, s]) => `
+                <tr>
+                    <td>${escapeAttr(s.layer_name)}</td>
+                    <td>${s.product_count}</td>
+                    <td>${formatPrice(s.mean_price)}</td>
+                    <td>${formatPrice(s.std_dev_price)}</td>
+                    <td>${formatPrice(s.min_price)}</td>
+                    <td>${formatPrice(s.max_price)}</td>
+                    <td>${formatPrice(s.mean_unit_cost)}</td>
+                </tr>
+            `).join('');
+
+            const bodyHtml = `
+                <div class="snapshot-chart-wrap"><canvas id="snapshot-chart"></canvas></div>
+                <table class="stats-table">
+                    <thead><tr>
+                        <th>Layer</th><th>#</th><th>Mean Price</th><th>Std Dev</th>
+                        <th>Min</th><th>Max</th><th>Mean Cost</th>
+                    </tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            `;
+
+            openModal({
+                title: `Snapshot &mdash; ${economy ? escapeAttr(economy.name) : '?'} @ step ${snapshot.timestamp}`,
+                sub: 'Layer summary at snapshot time',
+                bodyHtml,
+                onMounted: () => buildSnapshotChart(layerEntries),
+            });
+        }
+
+        function buildSnapshotChart(layerEntries) {
+            const canvas = document.getElementById('snapshot-chart');
+            if (!canvas) return;
+            const labels = layerEntries.map(([_, s]) => s.layer_name);
+            const means = layerEntries.map(([_, s]) => s.mean_price);
+            const stds = layerEntries.map(([_, s]) => s.std_dev_price);
+            const colors = ['#7986cb', '#80cbc4', '#ffb74d', '#ef5350', '#66bb6a'];
+            _modalChart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Mean Price',
+                            data: means,
+                            backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+                            borderColor: '#0f0e17',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Std Dev',
+                            type: 'line',
+                            data: stds,
+                            borderColor: '#ffe0b2',
+                            backgroundColor: 'rgba(255,224,178,0.2)',
+                            tension: 0.25,
+                            pointRadius: 4,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { ticks: { color: '#a7a9be' }, grid: { color: '#1e1e30' } },
+                        y: { ticks: { color: '#a7a9be' }, grid: { color: '#1e1e30' }, beginAtZero: true },
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#d0d0e8' } },
+                    },
+                },
+            });
+        }
+
+        function formatPrice(v) {
+            if (v === null || v === undefined) return '—';
+            return Number(v).toFixed(4);
+        }
+
+        /* ---- Change-events popup ---- */
+
+        function openChanges(economyId, step, economyName) {
+            fetch('/api/economy/' + economyId + '/changelog?step=' + step)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) { alert(data.error); return; }
+                    renderChangesModal(economyName, step, data.events || []);
+                });
+        }
+
+        function renderChangesModal(economyName, step, events) {
+            const listHtml = events.length
+                ? `<ul class="events-list">${events.map(renderEventRow).join('')}</ul>`
+                : '<p style="color:#a7a9be">No events recorded at this step.</p>';
+            openModal({
+                title: `Changes at step ${step}`,
+                sub: economyName,
+                bodyHtml: listHtml,
+            });
+        }
+
+        function renderEventRow(e) {
+            let detail = `<span class="event-target">${escapeAttr(e.product_name)}</span>
+                          <span style="color:#6a6a8a"> &middot; ${escapeAttr(e.layer_name)}</span>`;
+            if (e.event_type === 'weight_changed') {
+                const comp = e.component_name ? ` of <em>${escapeAttr(e.component_name)}</em>` : '';
+                detail += `<div class="event-vals">weight${comp}: ${formatPrice(e.old_value)} &rarr; ${formatPrice(e.new_value)}</div>`;
+            } else if (e.event_type === 'unit_cost_changed') {
+                detail += `<div class="event-vals">unit cost: ${formatPrice(e.old_value)} &rarr; ${formatPrice(e.new_value)}</div>`;
+            } else if (e.other_product) {
+                detail += `<div class="event-vals">&harr; ${escapeAttr(e.other_product)}${e.other_layer ? ' (' + escapeAttr(e.other_layer) + ')' : ''}</div>`;
+            }
+            return `<li>
+                <span class="event-type-badge">${escapeAttr(e.event_type)}</span>
+                <div class="event-meta">${detail}</div>
+            </li>`;
+        }
+
+        function findEconomy(id) {
+            for (const g of (_state.groups || [])) {
+                for (const m of g.members) if (m.id === id) return m;
+            }
+            return null;
+        }
+
+        loadSimulation();
+    </script>
+</body>
+</html>

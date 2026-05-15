@@ -10,6 +10,7 @@ from market.products.processed import ProcessedMaterial
 from market.products.product_layer import Layer
 from market.products.raw_materials import RawMaterial
 from market.products.types import AnyComposite, AnyProduct
+from market.analytics.snapshot import EconomySnapshot
 
 
 class Economy:
@@ -29,14 +30,17 @@ class Economy:
 
     def __init__(self, arg_dicts : dict[str,ArgDict]) -> None:
         self.sim_args = arg_dicts["sim_args"].conts
+        self.name = self.sim_args["economy_name"]
         self.layers = Economy.LAYER_ARGS.copy()
         self.num_products = 0
         self.current_time_step: int = 0
         self.change_log: list = []
+        self.id : int = None #assigned by Simulation when registered
         #TODO handle args for abstract product types (if even needed)
         self.createLayers(arg_dicts)
         self.connectAllLayers()
         self.layers : dict[AnyProduct, Layer]
+        self.snapshots : dict[int,EconomySnapshot] = {}
 
     def createLayers(self, node_args : dict[str,ArgDict]) -> None:
         """
@@ -93,3 +97,11 @@ class Economy:
             if isinstance(layer.products[0], GlobalMaterial):
                 continue #globals aren't 'intelligent' and don't ever make 'decisions'.
             layer.makeDecisions()
+    
+    def snapshot(self) -> EconomySnapshot:
+        """
+        Returns a snapshot of economy analytics at the current time step.   
+        """
+        snapshot = EconomySnapshot(self,self.current_time_step)
+        self.snapshots.update({self.current_time_step : snapshot})
+        return snapshot

@@ -154,9 +154,17 @@
     </style>
 </head>
 <body>
-    <header>Inflation Simulation — Parameter Setup</header>
+    <header style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Inflation Simulation — Parameter Setup{% if attach_group %} (attaching to <em>{{ attach_group.name }}</em>){% endif %}</span>
+        {% if has_simulation %}
+        <a href="/sim_view" style="color:#c5cae9; text-decoration:none; font-size:0.82rem; background:rgba(255,255,255,0.08); padding:6px 12px; border-radius:5px;">&larr; Back to Timeline</a>
+        {% endif %}
+    </header>
     <div class="container">
         <form method="POST" action="/run">
+            {% if attach_group %}
+            <input type="hidden" name="attach_to_group" value="{{ attach_group.id }}">
+            {% endif %}
             <div class="grid">
                 {% for section in sections %}
                 <div class="card">

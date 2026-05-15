@@ -407,8 +407,8 @@
 </head>
 <body>
     <header>
-        <span>Inflation Simulation &mdash; Supply Chain Graph</span>
-        <a href="/">&larr; New Simulation</a>
+        <span>Inflation Simulation &mdash; {{ economy_name }} (id {{ economy_id }})</span>
+        <a href="/sim_view">&larr; Back to Timeline</a>
     </header>
 
     <div class="main">
@@ -428,6 +428,7 @@
         <button class="btn" onclick="resetView()">&#8635; Reset View</button>
         <button class="btn" onclick="exportPNG()">&#8659; Export PNG</button>
         <button class="btn" id="step-btn" onclick="stepTime()" style="border-color:#5c6bc0; color:#c5cae9;">&#9658; Next Step</button>
+        <button class="btn" id="snapshot-btn" onclick="createSnapshot()" style="border-color:#80cbc4; color:#80cbc4;">&#9678; Snapshot</button>
         <span id="step-label" style="font-size:0.78rem; color:#a7a9be;"></span>
         <div class="legend">
             <div class="legend-item" id="global-legend-item" style="display:none">
@@ -446,11 +447,14 @@
     </div>
 
     <script>
+        const _economyId = {{ economy_id }};
+        const API_BASE = '/api/economy/' + _economyId;
+
         let network, nodes, edges;
         let _currentNodeId = null;
         let _globalsData = { active: false, globals: [] };
 
-        fetch('/api/globals')
+        fetch(API_BASE + '/globals')
             .then(r => r.json())
             .then(data => {
                 _globalsData = data;
@@ -460,7 +464,7 @@
                 }
             });
 
-        fetch('/api/graph')
+        fetch(API_BASE + '/graph')
             .then(r => r.json())
             .then(data => {
                 nodes = new vis.DataSet(data.nodes);
@@ -540,7 +544,33 @@
                         showHint();
                     }
                 });
+
+                refreshPrices();
             });
+
+        function applyPrices(prices) {
+            if (!nodes || !prices) return;
+            const updates = [];
+            for (const [nid, price] of Object.entries(prices)) {
+                if (price !== null && price !== undefined) {
+                    updates.push({ id: nid, label: nid + '\n$' + price.toFixed(4) });
+                }
+            }
+            if (updates.length) nodes.update(updates);
+        }
+
+        function refreshPrices() {
+            return fetch(API_BASE + '/prices')
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp && resp.prices) {
+                        applyPrices(resp.prices);
+                        if (typeof resp.step === 'number' && resp.step > 0) {
+                            document.getElementById('step-label').textContent = 'Step ' + resp.step;
+                        }
+                    }
+                });
+        }
 
         function highlightEdges(nodeId) {
             const updates = [];
@@ -565,7 +595,7 @@
         }
 
         function fetchNodeInfo(nodeId) {
-            fetch('/api/node/' + encodeURIComponent(nodeId))
+            fetch(API_BASE + '/node/' + encodeURIComponent(nodeId))
                 .then(r => r.json())
                 .then(info => renderNodeInfo(info, nodeId));
         }
@@ -584,12 +614,11 @@
                         <div class="layer-badge ${badge}">${info.layer}</div>`;
 
             const props = [['ID', info.id]];
-            if (info.unit_cost !== undefined) props.push(['Unit Cost', info.unit_cost]);
             if (info.sale_price !== null && info.sale_price !== undefined)
                 props.push(['Sale Price', '$' + info.sale_price.toFixed(4)]);
             if (info.units_avail !== undefined) props.push(['Units Available', info.units_avail]);
             if (info.num_components !== undefined) props.push(['# Components', info.num_components]);
-            html += buildPropertiesSection('Properties', props);
+            html += buildPropertiesSection('Properties', props, info, nodeId);
 
             if (info.components) {
                 html += buildCompositionSection('Components', info.components, info.components_abs || null, '#7986cb', nodeId);
@@ -606,8 +635,23 @@
             document.getElementById('sidebar-body').innerHTML = html;
         }
 
-        function buildPropertiesSection(title, props) {
+        function buildPropertiesSection(title, props, info, nodeId) {
             let html = `<div class="info-section"><h4>${title}</h4>`;
+            if (info && info.unit_cost !== undefined && nodeId) {
+                const ucVal = Number(info.unit_cost).toFixed(4);
+                html += `<div class="prop-item">
+                    <span class="prop-key">Unit Cost</span>
+                    <span class="unit-cost-edit">
+                        <input type="number" id="unit-cost-input" class="weight-input"
+                               style="width:74px" step="0.01" min="0"
+                               value="${ucVal}" data-original="${ucVal}"
+                               oninput="onUnitCostInput()">
+                        <button id="unit-cost-apply" class="apply-btn"
+                                style="display:none;padding:1px 8px;font-size:0.66rem;margin-left:4px"
+                                onclick="applyUnitCost('${nodeId}')">Apply</button>
+                    </span>
+                </div>`;
+            }
             for (const [key, val] of props) {
                 html += `<div class="prop-item">
                     <span class="prop-key">${key}</span>
@@ -616,6 +660,45 @@
             }
             html += `</div>`;
             return html;
+        }
+
+        function onUnitCostInput() {
+            const inp = document.getElementById('unit-cost-input');
+            const btn = document.getElementById('unit-cost-apply');
+            if (!inp || !btn) return;
+            const changed = parseFloat(inp.value) !== parseFloat(inp.dataset.original);
+            btn.style.display = changed ? 'inline-block' : 'none';
+        }
+
+        function applyUnitCost(nodeId) {
+            const inp = document.getElementById('unit-cost-input');
+            const btn = document.getElementById('unit-cost-apply');
+            if (!inp) return;
+            const v = parseFloat(inp.value);
+            if (isNaN(v) || v < 0) {
+                alert('Unit cost must be a non-negative number.');
+                return;
+            }
+            if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
+            fetch(API_BASE + '/node/' + encodeURIComponent(nodeId) + '/unit_cost', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ unit_cost: v })
+            })
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.error) {
+                    alert('Error: ' + resp.error);
+                    if (btn) { btn.textContent = 'Apply'; btn.disabled = false; }
+                    return;
+                }
+                fetchNodeInfo(nodeId);
+            })
+            .catch(err => {
+                alert('Request failed: ' + err);
+                if (btn) { btn.textContent = 'Apply'; btn.disabled = false; }
+            });
         }
 
         function buildCompositionSection(title, data, absData, barColor, editableNodeId) {
@@ -710,28 +793,46 @@
             btn.disabled = true;
             btn.textContent = 'Stepping…';
 
-            fetch('/api/timestep', { method: 'POST' })
+            fetch(API_BASE + '/timestep', { method: 'POST' })
                 .then(r => r.json())
                 .then(resp => {
                     if (resp.error) { alert('Step error: ' + resp.error); return; }
 
                     document.getElementById('step-label').textContent = 'Step ' + resp.step;
                     btn.textContent = '✓ Step ' + resp.step;
+                    btn.disabled = false;
 
-                    const updates = [];
-                    for (const [nid, price] of Object.entries(resp.prices)) {
-                        if (price !== null && price !== undefined) {
-                            updates.push({ id: nid, label: nid + '\n$' + price.toFixed(4) });
-                        }
-                    }
-                    nodes.update(updates);
-
+                    applyPrices(resp.prices);
                     if (_currentNodeId) fetchNodeInfo(_currentNodeId);
                 })
                 .catch(err => {
                     alert('Step failed: ' + err);
                     btn.disabled = false;
                     btn.textContent = '▶ Next Step';
+                });
+        }
+
+        function createSnapshot() {
+            const btn = document.getElementById('snapshot-btn');
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Snapshotting…';
+            fetch(API_BASE + '/snapshot', { method: 'POST' })
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.error) {
+                        alert('Snapshot error: ' + resp.error);
+                        btn.textContent = prev;
+                    } else {
+                        btn.textContent = '✓ Snapshot @ step ' + resp.step;
+                        setTimeout(() => { btn.textContent = prev; }, 1600);
+                    }
+                    btn.disabled = false;
+                })
+                .catch(err => {
+                    alert('Snapshot failed: ' + err);
+                    btn.textContent = prev;
+                    btn.disabled = false;
                 });
         }
 
@@ -997,7 +1098,7 @@
             const btn = document.querySelector('#pie-container-' + secId + ' .apply-btn');
             if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
-            fetch('/api/node/' + encodeURIComponent(editableNodeId) + '/weights', {
+            fetch(API_BASE + '/node/' + encodeURIComponent(editableNodeId) + '/weights', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ weights })

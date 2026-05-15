@@ -1,5 +1,6 @@
 
 #section sim_args 
+#argument economy_name: "String, Display name of the economy being created."
 #argument use_globals: "True/Flase, include global materials in simulation. Global materials are products used as components for every composite product. E.g. eletricity"
 
 #section product_args

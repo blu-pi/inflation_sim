@@ -16,6 +16,7 @@ class SimArgs(ArgDict):
     """Arguments to alter simulation environment"""
 
     DEFAULTS = {
+        "economy_name" : "root",
         "use_globals" : False
     }
 
