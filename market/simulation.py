@@ -71,6 +71,13 @@ class Simulation:
         for economy in target_group.members:
             economy.runNextTimeStep()
 
+    def forkEconomy(self, economy : Economy) -> Economy:
+        common_group = self.getGroupForEconomy(economy)
+        new_economy = economy.fork()
+        self.registerEconomy(new_economy)
+        common_group.addMember(new_economy)
+        return new_economy
+
     def createGroup(self, members : list[Economy], name : str = None) -> EconomyGroup:
         if name is None:
             if len(members) == 1:

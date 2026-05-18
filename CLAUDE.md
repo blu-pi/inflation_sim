@@ -36,6 +36,8 @@ ConsumerProduct   (layer 3)  — made from ProcessedMaterials (Composite)
 
 `Economy` ([market/economy.py](market/economy.py)) is the top-level orchestrator for a single economy. It creates all product instances, organizes them into `Layer` objects, then calls `connectAllLayers()` which runs `SymmetricalConnection` between adjacent layers and (when `use_globals` is enabled) calls `layer.wireGlobals()` on every non-Global layer. The resulting `Graph` is stored as `self.graph` for the web layer to consume. Each `Economy` carries its own `current_time_step`, `change_log` (list of `ChangeEvent`), and `snapshots` (`dict[step, EconomySnapshot]`). `Economy.runNextTimeStep()` advances all non-Global layers sequentially and increments `current_time_step`; GlobalMaterial is always skipped. `Economy.snapshot()` captures current state into `self.snapshots[current_time_step]`. The `id` field is `None` until `Simulation.registerEconomy()` assigns one.
 
+`Economy.fork(new_name=None)` deep-clones the economy via `copy.deepcopy(self)` to produce a structurally identical but independent `Economy`. `__init__` is intentionally bypassed (it would re-run random connection wiring and yield a different economy); deepcopy's memo dict handles every cross-reference (`ComponentDict` keys, `global_members`, `Product.layer`, `Strategy.product`) and the embedded NetworkX `DiGraph`. After cloning, `fork()` resets `clone.id = None`, sets `clone.parent_id = self.id`, sets `clone.creation_step = self.current_time_step`, and assigns a default name `"{source.name} fork @t{creation_step}"`. `change_log` and `snapshots` are duplicated by deepcopy itself — the clone owns independent copies of all past entries, so subsequent appends on either side stay isolated. Root (non-forked) economies have `parent_id = None` and `creation_step = None`, initialised in `__init__`.
+
 `Layer` ([market/products/product_layer.py](market/products/product_layer.py)) manages a collection of products. After creation, `Layer.wireMembers()` assigns each product its `_id` (unique within the layer) and a back-reference to the `Layer` instance via `product.layer`. When globals are active, `Layer.wireGlobals(global_materials)` calls `product.setGlobalMaterials()` on every member, giving each product its list of `GlobalMaterial` instances as an instance attribute. Products access their layer-mates via `self.layer.getMembers()`.
 
 `SymmetricalConnection` ([market/products/structs/layer_connection.py](market/products/structs/layer_connection.py)) enforces that every parent-layer product appears in at least one child's components, and that each child has approximately `num_preferred_components` parents. It randomly assigns connections while tracking frequency to stay balanced.
@@ -54,7 +56,7 @@ Each `Product` holds a `Strategy` instance assigned in `__init__`. The default i
 
 ### Simulation & EconomyGroup
 
-`Simulation` ([market/simulation.py](market/simulation.py)) is a first-class controller that owns every `Economy` created in the current session. It assigns each economy a unique `id` via `registerEconomy()`, and exposes lookup helpers (`getEconomyById`, `getGroupById`, `getGroupForEconomy`). Use `Simulation.createEconomy(arg_dicts, group_id=...)` to create-and-register in one call; if `group_id` is omitted a fresh single-member group is created. `runNextGroupTimeStep(group)` advances every member of a group by one step.
+`Simulation` ([market/simulation.py](market/simulation.py)) is a first-class controller that owns every `Economy` created in the current session. It assigns each economy a unique `id` via `registerEconomy()`, and exposes lookup helpers (`getEconomyById`, `getGroupById`, `getGroupForEconomy`). Use `Simulation.createEconomy(arg_dicts, group_id=...)` to create-and-register in one call; if `group_id` is omitted a fresh single-member group is created. `runNextGroupTimeStep(group)` advances every member of a group by one step. `Simulation.forkEconomy(economy)` calls `economy.fork()`, registers the clone (assigning a new `id`), adds it to the source's `EconomyGroup`, and returns the clone — forks always live in the same lane structure as their parent.
 
 `EconomyGroup` ([market/simulation.py](market/simulation.py)) bundles related economies together with a display `name` and `color` so the timeline UI can render them as a lane and step them as a unit. Default group colors cycle through `DEFAULT_GROUP_COLORS`. Groups support `setName`, `setColor`, `addMember`, and `absorbGroup` (merge two groups). The web layer holds a single module-level `_simulation = Simulation()` so state persists across requests.
 
@@ -73,7 +75,7 @@ Events are appended to `Economy.change_log` by the web routes that mutate state 
 - `LayerStats` — per-layer aggregates (`product_count`, `mean_price`, `std_dev_price`, `min_price`, `max_price`, `mean_unit_cost`). `LayerStats.createFromList(records)` computes these from a list of records.
 - `EconomySnapshot` — built from a live `Economy` plus a `timestamp`. Walks `economy.layers`, builds `ProductRecord`s per non-Global layer into `record_dict[layer_name]`, and computes `LayerStats` into `layer_insights[layer_name]`. The live economy reference is intentionally not retained.
 
-Snapshots are read-only by design — no deep fork is performed. The deep-fork mechanism (a "checkpoint" that produces an independent diverging economy) is still planned, see *In Progress*.
+Snapshots are read-only by design — no deep fork is performed. For an independently diverging copy of an `Economy`, use `Economy.fork()` (or `Simulation.forkEconomy()`); see the Economy section above.
 
 ## Configuration Flow
 
@@ -96,12 +98,13 @@ Pages:
 - `GET /economy/<int:economy_id>` — interactive graph viewer for a specific economy (`simulation.html`).
 
 Simulation-level API:
-- `GET /api/simulation` — full state: `{groups: [{id, name, color, members: [{id, name, current_step, use_globals, snapshot_steps, change_counts}, ...]}, ...]}`.
+- `GET /api/simulation` — full state: `{groups: [{id, name, color, members: [{id, name, current_step, use_globals, snapshot_steps, change_counts, parent_id, creation_step}, ...]}, ...]}`. For forked members, `snapshot_steps` and `change_counts` are filtered to entries with `timestamp > creation_step` — entries inherited from the parent via deepcopy are hidden so the timeline renders them only on the parent's lane.
 
 Economy-scoped API (all prefixed `/api/economy/<id>/...`):
 - `GET /graph` — vis.js-compatible JSON for the economy's supply chain.
 - `GET /prices` — `{prices: {nodeId: sale_price}, step: current_time_step}`.
 - `POST /timestep` — advances this economy one step; returns updated prices and step.
+- `POST /fork` — calls `Simulation.forkEconomy(economy)`, caches the clone's serialised graph, returns `{id, name, parent_id, creation_step}` of the new economy.
 - `POST /snapshot` — captures the current state into `economy.snapshots[step]`; returns `{step}`.
 - `GET /snapshot/<int:step>` — serialised snapshot (`timestamp`, `layer_insights`, `records`).
 - `GET /changelog?step=<n>` — change-events for this economy; optional `step` filter.
@@ -125,15 +128,15 @@ Group-scoped API (`/api/group/<id>/...`):
 
 There are two viewer pages:
 
-**`simulation_view.html`** — session-level timeline. Each `EconomyGroup` is a horizontal canvas (color-coded by the group's `color`), and each member economy is a lane within it. The x-axis is time steps. Each step is a node on the lane; the latest step is clickable and opens that economy's graph view. Above each lane, an annotation row marks `snapshot_steps` with diamond markers and steps that have entries in `change_counts` with an orange "N changes" pill. Clicking a snapshot marker opens a modal with a Chart.js bar/line chart of `layer_insights` plus a stats table; clicking a changes pill opens a list of `ChangeEvent`s at that step. The header lets the user step a whole group (`Step All`), rename a group, recolor it, or add another economy to it.
+**`simulation_view.html`** — session-level timeline. Each `EconomyGroup` is a horizontal canvas (color-coded by the group's `color`), and each member economy is a lane within it. The x-axis is time steps. Each step is a node on the lane; the latest step is clickable and opens that economy's graph view. Lane labels have a fixed width (140px) and truncate long economy names with an ellipsis (`…`); the full name is still shown on hover via the `title` attribute. Above each lane, an annotation row marks `snapshot_steps` with diamond markers and steps that have entries in `change_counts` with an orange "N changes" pill. Clicking a snapshot marker opens a modal with a Chart.js bar/line chart of `layer_insights` plus a stats table; clicking a changes pill opens a list of `ChangeEvent`s at that step. The header lets the user step a whole group (`Step All`), rename a group, recolor it, or add another economy to it.
 
-**`simulation.html`** — per-economy graph viewer using **vis.js Network** (CDN) with a hierarchical top-down layout. Clicking a node highlights its edges (incoming=blue, outgoing=green) and populates the sidebar. The sidebar shows node properties, component weights (editable for Composites), raw material composition (Consumer only), and global material costs (when `use_globals` is active). The toolbar provides Reset View, Export PNG, and **Next Step** (calls `/api/economy/<id>/timestep`).
+**Forked-economy rendering.** A member with non-null `creation_step` renders empty slot-placeholders before that step and real nodes from `creation_step` onward, so the fork's first node is x-aligned with its parent's node at the fork step. Each `.timeline-wrap` contains an `<svg class="fork-connector-overlay">` that JS populates after every render: for each fork member, a vertical dashed line in the group's color is drawn at the matching column between the parent's node-bottom and the fork's node-top (looked up via `data-economy-id` on lanes and `data-step` on timeline-nodes). If the parent has a change at exactly the fork's `creation_step`, an additional orange dashed line extends the parent's change-line down through the gap to the fork's node, signalling that the change predates the fork and was inherited via deepcopy. Connectors are redrawn on `window.resize`.
+
+**`simulation.html`** — per-economy graph viewer using **vis.js Network** (CDN) with a hierarchical top-down layout. Clicking a node highlights its edges (incoming=blue, outgoing=green) and populates the sidebar. The sidebar shows node properties, component weights (editable for Composites), raw material composition (Consumer only), and global material costs (when `use_globals` is active). The toolbar provides Reset View, Export PNG, **Next Step** (calls `/api/economy/<id>/timestep`), **Snapshot** (calls `/api/economy/<id>/snapshot`), and **Fork** (calls `/api/economy/<id>/fork` then redirects to `/sim_view` to display the new lane).
 
 ## In Progress
 
-**Checkpoint (deep economy fork)** — `EconomySnapshot` captures observable state for read-only comparison but does *not* duplicate the economy. A separate `Checkpoint` mechanism is planned that deep-forks an `Economy` so the copy can diverge over subsequent time steps, enabling side-by-side comparison of different intervention scenarios. The `EconomyGroup` lane structure already exists in part to display these comparisons once forks are wired in.
-
-**`SnapshotComparison`** — a standalone class (planned `market/analytics/comparison.py`) that takes two snapshots, matches products by `(layer_name, product_name)`, and reports price/cost deltas, edge diffs (reconstructed from `component_weights`), and per-layer aggregate deltas. Not yet implemented.
+**`SnapshotComparison`** — a standalone class (planned `market/analytics/comparison.py`) that takes two snapshots, matches products by `(layer_name, product_name)`, and reports price/cost deltas, edge diffs (reconstructed from `component_weights`), and per-layer aggregate deltas. Now meaningfully exercised by the fork mechanism (a fork and its source make a natural comparison pair). Not yet implemented.
 
 **Vertex add/remove events** — `GraphStructureChange` and `ChangeEventType.VERTEX_ADDED` / `VERTEX_REMOVED` are defined but no code path emits them yet.
 

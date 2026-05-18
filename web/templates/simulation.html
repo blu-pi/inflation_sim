@@ -429,6 +429,7 @@
         <button class="btn" onclick="exportPNG()">&#8659; Export PNG</button>
         <button class="btn" id="step-btn" onclick="stepTime()" style="border-color:#5c6bc0; color:#c5cae9;">&#9658; Next Step</button>
         <button class="btn" id="snapshot-btn" onclick="createSnapshot()" style="border-color:#80cbc4; color:#80cbc4;">&#9678; Snapshot</button>
+        <button class="btn" id="fork-btn" onclick="forkEconomy()" style="border-color:#ab47bc; color:#ce93d8;" title="Fork this economy at its current time-step">&#9683; Fork</button>
         <span id="step-label" style="font-size:0.78rem; color:#a7a9be;"></span>
         <div class="legend">
             <div class="legend-item" id="global-legend-item" style="display:none">
@@ -809,6 +810,29 @@
                     alert('Step failed: ' + err);
                     btn.disabled = false;
                     btn.textContent = '▶ Next Step';
+                });
+        }
+
+        function forkEconomy() {
+            const btn = document.getElementById('fork-btn');
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Forking…';
+            fetch(API_BASE + '/fork', { method: 'POST' })
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.error) {
+                        alert('Fork error: ' + resp.error);
+                        btn.textContent = prev;
+                        btn.disabled = false;
+                        return;
+                    }
+                    window.location.href = '/sim_view';
+                })
+                .catch(err => {
+                    alert('Fork failed: ' + err);
+                    btn.textContent = prev;
+                    btn.disabled = false;
                 });
         }
 

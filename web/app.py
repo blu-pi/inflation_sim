@@ -261,16 +261,28 @@ def api_simulation():
     for group in _simulation.economy_groups:
         members = []
         for economy in group.members:
+            # On a fork, hide annotations <= creation_step — those are the
+            # entries inherited from the parent via deepcopy, and we render
+            # them only on the parent's lane to avoid duplication.
+            fork_cutoff = economy.creation_step if economy.parent_id is not None else None
             change_counts: dict[int, int] = {}
             for event in economy.change_log:
+                if fork_cutoff is not None and event.timestamp <= fork_cutoff:
+                    continue
                 change_counts[event.timestamp] = change_counts.get(event.timestamp, 0) + 1
+            snapshot_steps = [
+                step for step in sorted(economy.snapshots.keys())
+                if fork_cutoff is None or step > fork_cutoff
+            ]
             members.append({
                 'id': economy.id,
                 'name': economy.name,
                 'current_step': economy.current_time_step,
                 'use_globals': economy.sim_args.get('use_globals', False),
-                'snapshot_steps': sorted(economy.snapshots.keys()),
+                'snapshot_steps': snapshot_steps,
                 'change_counts': change_counts,
+                'parent_id': economy.parent_id,
+                'creation_step': economy.creation_step,
             })
         groups_payload.append({
             'id': group.id,
@@ -308,6 +320,21 @@ def api_economy_timestep(economy_id):
     economy.runNextTimeStep()
     node_map = _node_map_for(economy_id)
     return jsonify({'prices': _prices_for(node_map), 'step': economy.current_time_step})
+
+
+@app.route('/api/economy/<int:economy_id>/fork', methods=['POST'])
+def api_economy_fork(economy_id):
+    economy, err = _get_economy_or_404(economy_id)
+    if err:
+        return err
+    clone = _simulation.forkEconomy(economy)
+    _cache_graph(clone)
+    return jsonify({
+        'id': clone.id,
+        'name': clone.name,
+        'parent_id': clone.parent_id,
+        'creation_step': clone.creation_step,
+    })
 
 
 @app.route('/api/economy/<int:economy_id>/snapshot', methods=['POST'])

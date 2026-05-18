@@ -143,6 +143,14 @@
 
         .timeline-wrap {
             padding: 14px 16px 16px;
+            position: relative;
+        }
+
+        .fork-connector-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: visible;
         }
 
         .lane {
@@ -156,7 +164,8 @@
         .lane:last-child { margin-bottom: 0; }
 
         .lane-label {
-            min-width: 140px;
+            width: 140px;
+            flex-shrink: 0;
             font-size: 0.85rem;
             color: #d0d0e8;
             font-weight: 500;
@@ -480,6 +489,9 @@
                 _state.groups.map(group => renderGroup(group, maxStep)).join('') +
                 renderSharedAxis(maxStep) +
                 '</div>';
+
+            // post-render: draw fork connectors for each group
+            requestAnimationFrame(drawAllForkConnectors);
         }
 
         function renderSharedAxis(maxStep) {
@@ -510,22 +522,28 @@
                             <button class="btn-sm btn-step-all" onclick="stepGroup(${group.id})" title="Advance all members by 1 step">&#9658; Step All</button>
                         </div>
                     </div>
-                    <div class="timeline-wrap">${lanes}</div>
+                    <div class="timeline-wrap">
+                        ${lanes}
+                        <svg class="fork-connector-overlay" data-group-id="${group.id}"></svg>
+                    </div>
                 </div>
             `;
         }
 
         function renderLane(group, economy, maxStep) {
+            const startStep = (economy.creation_step !== null && economy.creation_step !== undefined)
+                ? economy.creation_step
+                : 0;
             let slots = '';
             for (let t = 0; t <= maxStep; t++) {
-                const present = t <= economy.current_step;
+                const present = t >= startStep && t <= economy.current_step;
                 const isLatest = present && t === economy.current_step;
-                const drawEdge = t < economy.current_step;
+                const drawEdge = t >= startStep && t < economy.current_step;
                 let nodeHtml;
                 if (present) {
                     const cls = 'timeline-node' + (isLatest ? ' latest' : '');
                     const onclick = isLatest ? `onclick="openEconomy(${economy.id})"` : '';
-                    nodeHtml = `<div class="${cls}" ${onclick}>
+                    nodeHtml = `<div class="${cls}" data-step="${t}" ${onclick}>
                         <span class="node-tooltip">${escapeAttr(economy.name)} &middot; step ${t}${isLatest ? ' (open)' : ''}</span>
                     </div>`;
                 } else {
@@ -538,7 +556,7 @@
             }
             const annot = renderAnnotations(economy, maxStep);
             return `
-                <div class="lane">
+                <div class="lane" data-economy-id="${economy.id}">
                     <span class="lane-label" title="${escapeAttr(economy.name)}">${escapeAttr(economy.name)}</span>
                     <div class="lane-nodes">${slots}</div>
                     <span class="lane-meta">step ${economy.current_step}</span>
@@ -546,6 +564,80 @@
                 ${annot}
             `;
         }
+
+        function drawAllForkConnectors() {
+            document.querySelectorAll('.fork-connector-overlay').forEach(svg => {
+                const groupId = parseInt(svg.dataset.groupId, 10);
+                const group = _state.groups.find(g => g.id === groupId);
+                if (!group) return;
+                drawForkConnectorsForGroup(svg, group);
+            });
+        }
+
+        function drawForkConnectorsForGroup(svg, group) {
+            svg.innerHTML = '';
+            const wrap = svg.parentElement;
+            const wrapRect = wrap.getBoundingClientRect();
+            const color = group.color || '#5c6bc0';
+
+            for (const econ of group.members) {
+                if (econ.parent_id === null || econ.parent_id === undefined) continue;
+                if (econ.creation_step === null || econ.creation_step === undefined) continue;
+
+                const parentLane = wrap.querySelector(`.lane[data-economy-id="${econ.parent_id}"]`);
+                const forkLane   = wrap.querySelector(`.lane[data-economy-id="${econ.id}"]`);
+                if (!parentLane || !forkLane) continue;
+
+                const parentNode = parentLane.querySelector(`.timeline-node[data-step="${econ.creation_step}"]`);
+                const forkNode   = forkLane.querySelector(`.timeline-node[data-step="${econ.creation_step}"]`);
+                if (!parentNode || !forkNode) continue;
+
+                const pRect = parentNode.getBoundingClientRect();
+                const fRect = forkNode.getBoundingClientRect();
+                const x  = (pRect.left + pRect.right) / 2 - wrapRect.left;
+                const y1 = pRect.bottom - wrapRect.top;
+                const y2 = fRect.top    - wrapRect.top;
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x);
+                line.setAttribute('x2', x);
+                line.setAttribute('y1', y1);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', color);
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', '4 3');
+                line.setAttribute('stroke-linecap', 'round');
+                line.setAttribute('opacity', '0.85');
+                svg.appendChild(line);
+
+                // If the parent had a change at the fork step, that change was
+                // inherited by the fork via deepcopy. Extend the parent's
+                // orange change-line down through the gap to the fork's node
+                // so the indicator visually passes through both lanes.
+                const parentAnnotLane = wrap.querySelector(`.annot-lane[data-economy-id="${econ.parent_id}"]`);
+                if (!parentAnnotLane) continue;
+                const annotSlot = parentAnnotLane.querySelector(`.annot-slot[data-step="${econ.creation_step}"]`);
+                if (!annotSlot) continue;
+                const changeAnchor = annotSlot.querySelector('.change-anchor');
+                if (!changeAnchor) continue;
+
+                const aRect = changeAnchor.getBoundingClientRect();
+                const cx  = (aRect.left + aRect.right) / 2 - wrapRect.left;
+                const cy1 = aRect.bottom - wrapRect.top;
+                const cy2 = fRect.top - wrapRect.top;
+
+                const cline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                cline.setAttribute('x1', cx);
+                cline.setAttribute('x2', cx);
+                cline.setAttribute('y1', cy1);
+                cline.setAttribute('y2', cy2);
+                cline.setAttribute('stroke', 'rgba(255, 183, 77, 0.55)');
+                cline.setAttribute('stroke-width', '1');
+                svg.appendChild(cline);
+            }
+        }
+
+        window.addEventListener('resize', () => requestAnimationFrame(drawAllForkConnectors));
 
         function renderAnnotations(economy, maxStep) {
             const snapshotSteps = new Set(economy.snapshot_steps || []);
@@ -566,9 +658,9 @@
                         <span class="change-label" onclick="openChanges(${economy.id}, ${t}, '${escapeAttr(economy.name)}')">${count} change${count === 1 ? '' : 's'}</span>
                     </div>`;
                 }
-                slots += `<div class="annot-slot">${parts}</div>`;
+                slots += `<div class="annot-slot" data-step="${t}">${parts}</div>`;
             }
-            return `<div class="annot-lane">${slots}</div>`;
+            return `<div class="annot-lane" data-economy-id="${economy.id}">${slots}</div>`;
         }
 
         function escapeAttr(s) {
