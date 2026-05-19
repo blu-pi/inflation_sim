@@ -163,8 +163,41 @@
         }
         .lane:last-child { margin-bottom: 0; }
 
+        .drag-handle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 22px;
+            cursor: grab;
+            color: #5a5a78;
+            font-size: 0.9rem;
+            line-height: 1;
+            user-select: none;
+            flex-shrink: 0;
+            transition: color 0.15s;
+        }
+        .drag-handle:hover { color: #d0d0e8; }
+        .drag-handle:active { cursor: grabbing; }
+
+        .lane-drag-handle { margin-right: 4px; }
+        .group-drag-handle { margin-right: 2px; }
+
+        .lane.drag-source,
+        .group-canvas.drag-source { opacity: 0.4; }
+
+        .lane.drag-over {
+            background: rgba(92, 107, 192, 0.18);
+            border-radius: 4px;
+            outline: 2px dashed rgba(92, 107, 192, 0.55);
+            outline-offset: -2px;
+        }
+        .group-canvas.drag-over {
+            box-shadow: 0 0 0 2px rgba(92, 107, 192, 0.65), 0 1px 6px rgba(0,0,0,0.3);
+        }
+
         .lane-label {
-            width: 140px;
+            width: 118px;
             flex-shrink: 0;
             font-size: 0.85rem;
             color: #d0d0e8;
@@ -461,10 +494,99 @@
 
         let _state = { groups: [] };
 
+        // Client-side display order, persisted to localStorage so user-driven
+        // swaps and fork-insertion positions survive reloads. We never reorder
+        // data on the server — these arrays are applied as an overlay on top
+        // of every /api/simulation response.
+        const _order = {
+            groups: [],                 // ordered list of group ids
+            lanesByGroup: new Map(),    // groupId -> ordered list of economy ids
+        };
+        const ORDER_STORAGE_KEY = 'inflation_sim.order_v1';
+
+        function persistOrder() {
+            try {
+                localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify({
+                    groups: _order.groups,
+                    lanesByGroup: Object.fromEntries(_order.lanesByGroup),
+                }));
+            } catch (_) { /* quota exceeded or storage disabled — silently skip */ }
+        }
+
+        function restoreOrder() {
+            try {
+                const raw = localStorage.getItem(ORDER_STORAGE_KEY);
+                if (!raw) return;
+                const payload = JSON.parse(raw);
+                if (Array.isArray(payload.groups)) {
+                    _order.groups = payload.groups.filter(x => Number.isInteger(x));
+                }
+                if (payload.lanesByGroup && typeof payload.lanesByGroup === 'object') {
+                    for (const [gid, lane] of Object.entries(payload.lanesByGroup)) {
+                        // JSON.stringify keys map keys to strings; convert back.
+                        const gidNum = Number(gid);
+                        if (Number.isInteger(gidNum) && Array.isArray(lane)) {
+                            _order.lanesByGroup.set(gidNum, lane.filter(x => Number.isInteger(x)));
+                        }
+                    }
+                }
+            } catch (_) { /* corrupted payload — ignore, start fresh */ }
+        }
+
+        function applyOrderOverlay(state) {
+            const groups = state.groups || [];
+
+            const known = new Set(groups.map(g => g.id));
+            _order.groups = _order.groups.filter(id => known.has(id));
+            for (const g of groups) {
+                if (!_order.groups.includes(g.id)) _order.groups.push(g.id);
+            }
+            const byId = new Map(groups.map(g => [g.id, g]));
+            state.groups = _order.groups.map(id => byId.get(id)).filter(Boolean);
+
+            for (const g of state.groups) {
+                const memberIds = new Set(g.members.map(m => m.id));
+                let lane = _order.lanesByGroup.get(g.id) || [];
+                lane = lane.filter(id => memberIds.has(id));
+                // New members arrive at the end of g.members (server-side
+                // insertion order). For a fork, insert it right below its
+                // parent so the newest child is always closest to the parent
+                // — older children get pushed down by the splice. Non-forks
+                // (or forks whose parent isn't in this group, somehow) append.
+                for (const m of g.members) {
+                    if (lane.includes(m.id)) continue;
+                    if (m.parent_id !== null && m.parent_id !== undefined) {
+                        const pi = lane.indexOf(m.parent_id);
+                        if (pi >= 0) {
+                            lane.splice(pi + 1, 0, m.id);
+                            continue;
+                        }
+                    }
+                    lane.push(m.id);
+                }
+                _order.lanesByGroup.set(g.id, lane);
+                const memById = new Map(g.members.map(m => [m.id, m]));
+                g.members = lane.map(id => memById.get(id)).filter(Boolean);
+            }
+            for (const gid of Array.from(_order.lanesByGroup.keys())) {
+                if (!known.has(gid)) _order.lanesByGroup.delete(gid);
+            }
+            persistOrder();
+        }
+
+        function swapInArray(arr, a, b) {
+            const ia = arr.indexOf(a);
+            const ib = arr.indexOf(b);
+            if (ia < 0 || ib < 0 || ia === ib) return false;
+            [arr[ia], arr[ib]] = [arr[ib], arr[ia]];
+            return true;
+        }
+
         function loadSimulation() {
             fetch('/api/simulation')
                 .then(r => r.json())
                 .then(data => {
+                    applyOrderOverlay(data);
                     _state = data;
                     render();
                 });
@@ -506,8 +628,16 @@
         function renderGroup(group, maxStep) {
             const lanes = group.members.map(m => renderLane(group, m, maxStep)).join('');
             return `
-                <div class="group-canvas" style="--group-color:${escapeAttr(group.color)}" data-group-id="${group.id}">
+                <div class="group-canvas" style="--group-color:${escapeAttr(group.color)}" data-group-id="${group.id}"
+                     ondragover="onGroupDragOver(event, ${group.id})"
+                     ondragleave="onGroupDragLeave(event)"
+                     ondrop="onGroupDrop(event, ${group.id})">
                     <div class="group-header">
+                        <span class="drag-handle group-drag-handle"
+                              draggable="true"
+                              ondragstart="onGroupDragStart(event, ${group.id})"
+                              ondragend="onDragEnd(event)"
+                              title="Drag to reorder group">&#8942;&#8942;</span>
                         <input type="color" class="group-color-swatch"
                                value="${escapeAttr(group.color)}"
                                oninput="onColorChange(${group.id}, this.value)"
@@ -556,7 +686,15 @@
             }
             const annot = renderAnnotations(economy, maxStep);
             return `
-                <div class="lane" data-economy-id="${economy.id}">
+                <div class="lane" data-economy-id="${economy.id}" data-group-id="${group.id}"
+                     ondragover="onLaneDragOver(event, ${group.id}, ${economy.id})"
+                     ondragleave="onLaneDragLeave(event)"
+                     ondrop="onLaneDrop(event, ${group.id}, ${economy.id})">
+                    <span class="drag-handle lane-drag-handle"
+                          draggable="true"
+                          ondragstart="onLaneDragStart(event, ${group.id}, ${economy.id})"
+                          ondragend="onDragEnd(event)"
+                          title="Drag to reorder economy within group">&#8942;&#8942;</span>
                     <span class="lane-label" title="${escapeAttr(economy.name)}">${escapeAttr(economy.name)}</span>
                     <div class="lane-nodes">${slots}</div>
                     <span class="lane-meta">step ${economy.current_step}</span>
@@ -703,6 +841,110 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
             }).then(() => loadSimulation());
+        }
+
+        /* ---- Drag-and-drop reordering ----
+           Pure client-side. We track what's being dragged in _drag and only
+           allow same-type swaps (group<->group, lane<->lane within the same
+           group). Drops just mutate the order arrays and re-render. */
+
+        let _drag = null; // { type: 'group'|'lane', id, groupId }
+
+        function clearDragVisuals() {
+            document.querySelectorAll('.drag-source, .drag-over').forEach(el => {
+                el.classList.remove('drag-source', 'drag-over');
+            });
+        }
+
+        function onGroupDragStart(event, groupId) {
+            _drag = { type: 'group', id: groupId, groupId: null };
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', `group:${groupId}`);
+            const canvas = event.target.closest('.group-canvas');
+            if (canvas) {
+                canvas.classList.add('drag-source');
+                try { event.dataTransfer.setDragImage(canvas, 10, 10); } catch (_) {}
+            }
+        }
+
+        function onLaneDragStart(event, groupId, economyId) {
+            _drag = { type: 'lane', id: economyId, groupId };
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', `lane:${groupId}:${economyId}`);
+            event.stopPropagation();
+            const lane = event.target.closest('.lane');
+            if (lane) {
+                lane.classList.add('drag-source');
+                try { event.dataTransfer.setDragImage(lane, 10, 10); } catch (_) {}
+            }
+        }
+
+        function onDragEnd(event) {
+            _drag = null;
+            clearDragVisuals();
+        }
+
+        function onGroupDragOver(event, groupId) {
+            if (!_drag || _drag.type !== 'group' || _drag.id === groupId) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function onGroupDragLeave(event) {
+            if (event.currentTarget.contains(event.relatedTarget)) return;
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        function onGroupDrop(event, groupId) {
+            if (!_drag || _drag.type !== 'group' || _drag.id === groupId) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const sourceId = _drag.id;
+            clearDragVisuals();
+            _drag = null;
+            if (swapInArray(_order.groups, sourceId, groupId)) {
+                persistOrder();
+                const byId = new Map(_state.groups.map(g => [g.id, g]));
+                _state.groups = _order.groups.map(id => byId.get(id)).filter(Boolean);
+                render();
+            }
+        }
+
+        function onLaneDragOver(event, groupId, economyId) {
+            if (!_drag || _drag.type !== 'lane') return;
+            if (_drag.groupId !== groupId) return;   // cross-group not allowed
+            if (_drag.id === economyId) return;
+            event.preventDefault();
+            event.stopPropagation();                  // don't bubble to group canvas
+            event.dataTransfer.dropEffect = 'move';
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function onLaneDragLeave(event) {
+            if (event.currentTarget.contains(event.relatedTarget)) return;
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        function onLaneDrop(event, groupId, economyId) {
+            if (!_drag || _drag.type !== 'lane') return;
+            if (_drag.groupId !== groupId || _drag.id === economyId) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const sourceId = _drag.id;
+            clearDragVisuals();
+            _drag = null;
+            const laneOrder = _order.lanesByGroup.get(groupId);
+            if (!laneOrder) return;
+            if (swapInArray(laneOrder, sourceId, economyId)) {
+                persistOrder();
+                const group = _state.groups.find(g => g.id === groupId);
+                if (group) {
+                    const memById = new Map(group.members.map(m => [m.id, m]));
+                    group.members = laneOrder.map(id => memById.get(id)).filter(Boolean);
+                }
+                render();
+            }
         }
 
         /* ---- Modal infrastructure ---- */
@@ -881,6 +1123,7 @@
             return null;
         }
 
+        restoreOrder();
         loadSimulation();
     </script>
 </body>
