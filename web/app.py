@@ -261,18 +261,21 @@ def api_simulation():
     for group in _simulation.economy_groups:
         members = []
         for economy in group.members:
-            # On a fork, hide annotations <= creation_step — those are the
-            # entries inherited from the parent via deepcopy, and we render
-            # them only on the parent's lane to avoid duplication.
+            # On a fork, hide annotations with timestamp < creation_step — those
+            # are entries inherited from the parent via deepcopy and are rendered
+            # only on the parent's lane to avoid duplication.
+            # Option B ensures no changes exist at creation_step at fork time, so
+            # events exactly at creation_step are always post-fork and belong to
+            # whichever economy's change_log they appear in.
             fork_cutoff = economy.creation_step if economy.parent_id is not None else None
             change_counts: dict[int, int] = {}
             for event in economy.change_log:
-                if fork_cutoff is not None and event.timestamp <= fork_cutoff:
+                if fork_cutoff is not None and event.timestamp < fork_cutoff:
                     continue
                 change_counts[event.timestamp] = change_counts.get(event.timestamp, 0) + 1
             snapshot_steps = [
                 step for step in sorted(economy.snapshots.keys())
-                if fork_cutoff is None or step > fork_cutoff
+                if fork_cutoff is None or step >= fork_cutoff
             ]
             members.append({
                 'id': economy.id,
@@ -327,6 +330,14 @@ def api_economy_fork(economy_id):
     economy, err = _get_economy_or_404(economy_id)
     if err:
         return err
+    current_step = economy.current_time_step
+    if any(e.timestamp == current_step for e in economy.change_log):
+        return jsonify({
+            'error': (
+                f'Cannot fork while changes exist at the current step (t{current_step}). '
+                'Advance to the next step first.'
+            )
+        }), 409
     clone = _simulation.forkEconomy(economy)
     _cache_graph(clone)
     return jsonify({

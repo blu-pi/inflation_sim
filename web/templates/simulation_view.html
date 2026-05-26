@@ -747,31 +747,6 @@
                 line.setAttribute('stroke-linecap', 'round');
                 line.setAttribute('opacity', '0.85');
                 svg.appendChild(line);
-
-                // If the parent had a change at the fork step, that change was
-                // inherited by the fork via deepcopy. Extend the parent's
-                // orange change-line down through the gap to the fork's node
-                // so the indicator visually passes through both lanes.
-                const parentAnnotLane = wrap.querySelector(`.annot-lane[data-economy-id="${econ.parent_id}"]`);
-                if (!parentAnnotLane) continue;
-                const annotSlot = parentAnnotLane.querySelector(`.annot-slot[data-step="${econ.creation_step}"]`);
-                if (!annotSlot) continue;
-                const changeAnchor = annotSlot.querySelector('.change-anchor');
-                if (!changeAnchor) continue;
-
-                const aRect = changeAnchor.getBoundingClientRect();
-                const cx  = (aRect.left + aRect.right) / 2 - wrapRect.left;
-                const cy1 = aRect.bottom - wrapRect.top;
-                const cy2 = fRect.top - wrapRect.top;
-
-                const cline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                cline.setAttribute('x1', cx);
-                cline.setAttribute('x2', cx);
-                cline.setAttribute('y1', cy1);
-                cline.setAttribute('y2', cy2);
-                cline.setAttribute('stroke', 'rgba(255, 183, 77, 0.55)');
-                cline.setAttribute('stroke-width', '1');
-                svg.appendChild(cline);
             }
         }
 
