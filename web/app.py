@@ -486,6 +486,21 @@ def api_economy_update_unit_cost(economy_id, node_id):
     return jsonify({'unit_cost': product.unit_cost})
 
 
+@app.route('/api/economy/<int:economy_id>/node/<path:node_id>/history')
+def api_economy_node_history(economy_id, node_id):
+    economy, err = _get_economy_or_404(economy_id)
+    if err:
+        return err
+    node_map = _node_map_for(economy_id)
+    product = node_map.get(node_id)
+    if product is None:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify({
+        'sale_price': product.data_aggregator.get('sale_price', []),
+        'total_cost': product.data_aggregator.get('total_cost', []),
+    })
+
+
 @app.route('/api/economy/<int:economy_id>/globals')
 def api_economy_globals(economy_id):
     economy, err = _get_economy_or_404(economy_id)

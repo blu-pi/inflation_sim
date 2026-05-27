@@ -523,6 +523,32 @@
         .cl-arrow { color: #5a5a7a; margin: 0 3px; }
         .cl-new { color: #a5d6a7; }
         .cl-comp { color: #80cbc4; }
+
+        /* --- Data history modal --- */
+
+        .history-chart-wrap {
+            position: relative;
+            height: 260px;
+        }
+
+        .history-empty {
+            color: #a7a9be;
+            font-size: 0.82rem;
+            text-align: center;
+            margin-top: 48px;
+        }
+
+        .history-modal-box {
+            background: #0f0e17;
+            border: 1px solid #2a2a3e;
+            border-radius: 8px;
+            width: 680px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body data-economy-id="{{ economy_id }}">
@@ -556,6 +582,19 @@
             </div>
             <div class="modal-body" id="changelog-body">
                 <p class="cl-empty">Loading…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data history modal -->
+    <div class="modal-overlay" id="history-modal" onclick="onHistoryOverlayClick(event)">
+        <div class="modal-box history-modal-box">
+            <div class="modal-header">
+                <span class="modal-title" id="history-modal-title">&#128200; Data History</span>
+                <button class="modal-close" onclick="closeHistoryModal()" title="Close">&times;</button>
+            </div>
+            <div class="modal-body" id="history-modal-body">
+                <p class="history-empty">Loading…</p>
             </div>
         </div>
     </div>
@@ -794,6 +833,11 @@
                 html += `<div class="prop-item">
                     <span class="prop-key">${key}</span>
                     <span class="prop-val">${val}</span>
+                </div>`;
+            }
+            if (nodeId) {
+                html += `<div style="margin-top:10px">
+                    <button class="btn-xs" onclick="openHistoryModal('${nodeId}', '${(info.name || nodeId).replace(/'/g, "\\'")}')">&#128200; Data History</button>
                 </div>`;
             }
             html += `</div>`;
@@ -1294,6 +1338,113 @@
                 <span class="cl-type ${typeClass}">${typeLabel}</span>
                 <div class="cl-detail">${detail}</div>
             </div>`;
+        }
+
+        /* ---- Data history modal ---- */
+
+        let _historyChart = null;
+
+        function openHistoryModal(nodeId, nodeName) {
+            document.getElementById('history-modal-title').textContent = '\u{1F4C8} Data History — ' + nodeName;
+            document.getElementById('history-modal-body').innerHTML = '<p class="history-empty">Loading…</p>';
+            document.getElementById('history-modal').classList.add('open');
+
+            if (_historyChart) { _historyChart.destroy(); _historyChart = null; }
+
+            fetch(API_BASE + '/node/' + encodeURIComponent(nodeId) + '/history')
+                .then(r => r.json())
+                .then(data => renderHistoryChart(data))
+                .catch(err => {
+                    document.getElementById('history-modal-body').innerHTML =
+                        `<p class="history-empty" style="color:#ef5350">Failed to load: ${err}</p>`;
+                });
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.remove('open');
+            if (_historyChart) { _historyChart.destroy(); _historyChart = null; }
+        }
+
+        function onHistoryOverlayClick(e) {
+            if (e.target === document.getElementById('history-modal')) closeHistoryModal();
+        }
+
+        function renderHistoryChart(data) {
+            const prices = data.sale_price || [];
+            const costs  = data.total_cost || [];
+            const maxLen = Math.max(prices.length, costs.length);
+
+            const body = document.getElementById('history-modal-body');
+
+            if (maxLen === 0) {
+                body.innerHTML = '<p class="history-empty">No history recorded yet. Advance the simulation to collect data.</p>';
+                return;
+            }
+
+            const labels = Array.from({ length: maxLen }, (_, i) => i + 1);
+            body.innerHTML = '<div class="history-chart-wrap"><canvas id="history-chart-canvas"></canvas></div>';
+
+            const canvas = document.getElementById('history-chart-canvas');
+            const datasets = [];
+
+            if (prices.length > 0) {
+                datasets.push({
+                    label: 'Sale Price',
+                    data: prices,
+                    borderColor: '#7986cb',
+                    backgroundColor: 'rgba(121,134,203,0.12)',
+                    borderWidth: 2,
+                    pointRadius: prices.length > 40 ? 0 : 3,
+                    tension: 0,
+                    fill: false,
+                });
+            }
+
+            if (costs.length > 0) {
+                datasets.push({
+                    label: 'Total Cost',
+                    data: costs,
+                    borderColor: '#ffb74d',
+                    backgroundColor: 'rgba(255,183,77,0.10)',
+                    borderWidth: 2,
+                    pointRadius: costs.length > 40 ? 0 : 3,
+                    tension: 0,
+                    fill: false,
+                });
+            }
+
+            _historyChart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time Step', color: '#a7a9be', font: { size: 11 } },
+                            ticks: { color: '#a7a9be', maxTicksLimit: 12 },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                        },
+                        y: {
+                            title: { display: true, text: 'Value', color: '#a7a9be', font: { size: 11 } },
+                            ticks: { color: '#a7a9be' },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                        },
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#d0d0e8', font: { size: 11 }, boxWidth: 14 },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: items => 'Step ' + items[0].label,
+                                label: c => `${c.dataset.label}: ${Number(c.raw).toFixed(4)}`,
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         function applyWeights(secId) {
