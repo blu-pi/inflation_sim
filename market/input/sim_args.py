@@ -8,7 +8,7 @@ class ArgDict(ABC):
     def __init__(self, args : dict):
         self.conts = self.DEFAULTS.copy() | args
 
-    def joinConts(self, args : dict) -> 'ArgDict':
+    def joinConts(self, args : dict) -> None:
         """Add all passed args to argdict. Overwrites existing values with new values when keys are identical."""
         self.conts |= args
 
@@ -28,7 +28,7 @@ class ProductArgs(ArgDict):
     """Arguments applied to all Products that are created"""
 
     DEFAULTS = {
-
+        #"track_costs" : True
     }
 
     def __init__(self, args: dict):

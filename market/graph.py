@@ -1,5 +1,4 @@
 import networkx as nx
-import matplotlib.pyplot as plt
 
 from itertools import repeat
 from typing import TYPE_CHECKING

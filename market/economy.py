@@ -55,6 +55,8 @@ class Economy:
         """
         for material_type, arg_key in Economy.LAYER_ARGS.items():
             material_type : AnyProduct
+            abstract_product_args = node_args["product_args"].conts
+            node_args[arg_key].joinConts(abstract_product_args)
             material_args = node_args[arg_key].conts
             layer_size = material_args["layer_size"]
             layer_members : list[AnyProduct] = [] 
