@@ -24,7 +24,10 @@ class Product:
         self._id = None #wired soon after creation
         self.layer : Layer = None #wired soon after creation       
         self.sale_price = None
-        self.data_aggregator = {}
+
+        self.price_history : list[float] = []
+        self.total_cost_history : list[float] = []
+        self.flex_data_history : dict[str, list] = {} #for recording any other data points that might be relevant to flexible products in future; key is name of data point, value is list of values over time
     
     def setGlobalMaterials(self, global_materials : list) -> None:
         self.global_members = global_materials
@@ -43,7 +46,7 @@ class Product:
         """
         self.sale_price = price
         if report:
-            self.data_aggregator.setdefault("sale_price", []).append(price)
+            self.price_history.append(price)
 
     def setName(self, new_name : str) -> None:
         self.name = new_name
@@ -60,12 +63,12 @@ class Product:
         return self.findTotalCost()
 
     def findTotalCost(self, report : bool = True) -> float:
-        """Return total cost of production of this product."""
+        """Return total cost of production of this product. Excludes component costs for composites."""
         total_cost : float = self.unit_cost
         if self not in self.global_members:
             total_cost += self.findGlobalCost()
         if report:
-            self.data_aggregator.setdefault("total_cost", []).append(total_cost)
+            self.total_cost_history.append(total_cost)
         return total_cost
     
     def findGlobalCost(self, weightings : dict = None) -> float:

@@ -496,8 +496,8 @@ def api_economy_node_history(economy_id, node_id):
     if product is None:
         return jsonify({'error': 'Not found'}), 404
     return jsonify({
-        'sale_price': product.data_aggregator.get('sale_price', []),
-        'total_cost': product.data_aggregator.get('total_cost', []),
+        'sale_price': product.price_history,
+        'total_cost': product.total_cost_history,
     })
 
 

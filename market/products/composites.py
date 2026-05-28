@@ -54,5 +54,5 @@ class Composite(Product):
         total_cost = super().findTotalCost(report=False)
         total_cost += self.getComponentPrice()
         if report:
-            self.data_aggregator.setdefault("total_cost", []).append(total_cost)
+            self.total_cost_history.append(total_cost)
         return total_cost
