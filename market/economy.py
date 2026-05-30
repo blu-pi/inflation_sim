@@ -37,6 +37,7 @@ class Economy:
         self.num_products = 0
         self.current_time_step: int = 0
         self.change_log: list = []
+        self.graph : Graph = None #assigned at layer connection time
         self.id : int = None #assigned by Simulation when registered
         self.parent_id : int = None #set by fork() on the clone; stays None for root economies
         self.creation_step : int = None #set by fork() on the clone; stays None for root economies
@@ -105,6 +106,7 @@ class Economy:
             if isinstance(layer.products[0], GlobalMaterial):
                 continue #globals aren't 'intelligent' and don't ever make 'decisions'.
             layer.makeDecisions()
+        self.snapshot()
     
     def snapshot(self) -> EconomySnapshot:
         """

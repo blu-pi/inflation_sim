@@ -167,7 +167,6 @@ def _serialize_snapshot(snapshot: EconomySnapshot) -> dict:
                 'id': r.id,
                 'sale_price': r.sale_price,
                 'unit_cost': r.unit_cost,
-                'component_weights': r.component_weights,
             }
             for r in layer_records
         ]
@@ -273,16 +272,11 @@ def api_simulation():
                 if fork_cutoff is not None and event.timestamp < fork_cutoff:
                     continue
                 change_counts[event.timestamp] = change_counts.get(event.timestamp, 0) + 1
-            snapshot_steps = [
-                step for step in sorted(economy.snapshots.keys())
-                if fork_cutoff is None or step >= fork_cutoff
-            ]
             members.append({
                 'id': economy.id,
                 'name': economy.name,
                 'current_step': economy.current_time_step,
                 'use_globals': economy.sim_args.get('use_globals', False),
-                'snapshot_steps': snapshot_steps,
                 'change_counts': change_counts,
                 'parent_id': economy.parent_id,
                 'creation_step': economy.creation_step,
@@ -346,15 +340,6 @@ def api_economy_fork(economy_id):
         'parent_id': clone.parent_id,
         'creation_step': clone.creation_step,
     })
-
-
-@app.route('/api/economy/<int:economy_id>/snapshot', methods=['POST'])
-def api_economy_create_snapshot(economy_id):
-    economy, err = _get_economy_or_404(economy_id)
-    if err:
-        return err
-    snapshot = economy.snapshot()
-    return jsonify({'step': snapshot.timestamp})
 
 
 @app.route('/api/economy/<int:economy_id>/snapshot/<int:step>')

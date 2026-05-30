@@ -246,6 +246,14 @@
             box-shadow: 0 0 0 6px rgba(92, 107, 192, 0.32);
         }
 
+        .timeline-node.past {
+            cursor: pointer;
+        }
+        .timeline-node.past:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 4px rgba(92, 107, 192, 0.2);
+        }
+
         .timeline-node .node-tooltip {
             position: absolute;
             bottom: calc(100% + 6px);
@@ -671,10 +679,22 @@
                 const drawEdge = t >= startStep && t < economy.current_step;
                 let nodeHtml;
                 if (present) {
-                    const cls = 'timeline-node' + (isLatest ? ' latest' : '');
-                    const onclick = isLatest ? `onclick="openEconomy(${economy.id})"` : '';
+                    let cls, onclick, tooltipSuffix;
+                    if (isLatest) {
+                        cls = 'timeline-node latest';
+                        onclick = `onclick="openEconomy(${economy.id})"`;
+                        tooltipSuffix = ' (open)';
+                    } else if (t > 0) {
+                        cls = 'timeline-node past';
+                        onclick = `onclick="openSnapshot(${economy.id}, ${t})"`;
+                        tooltipSuffix = ' (snapshot)';
+                    } else {
+                        cls = 'timeline-node';
+                        onclick = '';
+                        tooltipSuffix = '';
+                    }
                     nodeHtml = `<div class="${cls}" data-step="${t}" ${onclick}>
-                        <span class="node-tooltip">${escapeAttr(economy.name)} &middot; step ${t}${isLatest ? ' (open)' : ''}</span>
+                        <span class="node-tooltip">${escapeAttr(economy.name)} &middot; step ${t}${tooltipSuffix}</span>
                     </div>`;
                 } else {
                     nodeHtml = '<div class="slot-placeholder"></div>';
@@ -753,18 +773,11 @@
         window.addEventListener('resize', () => requestAnimationFrame(drawAllForkConnectors));
 
         function renderAnnotations(economy, maxStep) {
-            const snapshotSteps = new Set(economy.snapshot_steps || []);
             const changeCounts = economy.change_counts || {};
-            const hasAny = snapshotSteps.size > 0 || Object.keys(changeCounts).length > 0;
-            if (!hasAny) return '';
+            if (!Object.keys(changeCounts).length) return '';
             let slots = '';
             for (let t = 0; t <= maxStep; t++) {
                 let parts = '';
-                if (snapshotSteps.has(t)) {
-                    parts += `<div class="snapshot-marker" onclick="openSnapshot(${economy.id}, ${t})" title="Snapshot at step ${t}">
-                        <span class="annot-tooltip">snapshot t${t}</span>
-                    </div>`;
-                }
                 const count = changeCounts[t] || changeCounts[String(t)];
                 if (count) {
                     parts += `<div class="change-anchor">
