@@ -9,8 +9,8 @@ if TYPE_CHECKING:
 class ChangeEventType(Enum):
     UNIT_COST_CHANGED = "unit_cost_changed"
     WEIGHT_CHANGED = "weight_changed"
-    VERTEX_ADDED = "vertex_added"
-    VERTEX_REMOVED = "vertex_removed"
+    VERTEX_ADDED = "vertex_added" #not used right now
+    VERTEX_REMOVED = "vertex_removed" #not used right now
 
 
 class ChangeEvent:

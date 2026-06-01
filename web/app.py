@@ -206,7 +206,7 @@ def index():
             'title': key.replace('_', ' ').title(),
             'fields': fields,
         })
-    has_simulation = len(_simulation.economies) > 0
+    has_simulation = bool(_simulation.economies)
     group_id_raw = request.args.get('group_id', '').strip()
     attach_group = None
     if group_id_raw.isdigit():
@@ -257,7 +257,7 @@ def economy_view(economy_id):
 def api_simulation():
     """Return the full simulation state: groups, their members, and timestep counts."""
     groups_payload = []
-    for group in _simulation.economy_groups:
+    for group in _simulation.economy_groups.values():
         members = []
         for economy in group.members:
             # On a fork, hide annotations with timestamp < creation_step — those

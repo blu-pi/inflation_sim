@@ -223,6 +223,12 @@
             align-items: center;
             gap: 0;
         }
+        .step-slot.latest-slot {
+            width: auto;
+        }
+        .step-slot.latest-slot .lane-meta {
+            margin-left: 6px;
+        }
 
         .timeline-node {
             position: relative;
@@ -462,8 +468,21 @@
         .lane-meta {
             margin-left: 16px;
             font-size: 0.72rem;
-            color: #6a6a8a;
+            color: #a7a9be;
             white-space: nowrap;
+            padding: 4px 10px;
+            border: 1px solid #3a3a5e;
+            border-radius: 4px;
+            background: #1a1a2e;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            font-family: inherit;
+            line-height: 1.4;
+        }
+        .lane-meta:hover {
+            background: #2a2a4e;
+            border-color: #5c6bc0;
+            color: #fffffe;
         }
 
         .step-axis {
@@ -702,7 +721,11 @@
                 const edgeHtml = t < maxStep
                     ? `<div class="timeline-edge ${drawEdge ? '' : 'empty'}"></div>`
                     : '';
-                slots += `<div class="step-slot">${nodeHtml}${edgeHtml}</div>`;
+                const btnHtml = isLatest
+                    ? `<button class="lane-meta" onclick="stepEconomy(${economy.id})" title="Advance ${escapeAttr(economy.name)} by 1 step">step ${economy.current_step}</button>`
+                    : '';
+                const slotCls = isLatest ? 'step-slot latest-slot' : 'step-slot';
+                slots += `<div class="${slotCls}">${nodeHtml}${btnHtml}${edgeHtml}</div>`;
             }
             const annot = renderAnnotations(economy, maxStep);
             return `
@@ -717,7 +740,6 @@
                           title="Drag to reorder economy within group">&#8942;&#8942;</span>
                     <span class="lane-label" title="${escapeAttr(economy.name)}">${escapeAttr(economy.name)}</span>
                     <div class="lane-nodes">${slots}</div>
-                    <span class="lane-meta">step ${economy.current_step}</span>
                 </div>
                 ${annot}
             `;
@@ -803,6 +825,15 @@
 
         function stepGroup(groupId) {
             fetch('/api/group/' + groupId + '/timestep', { method: 'POST' })
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.error) { alert(resp.error); return; }
+                    loadSimulation();
+                });
+        }
+
+        function stepEconomy(economyId) {
+            fetch('/api/economy/' + economyId + '/timestep', { method: 'POST' })
                 .then(r => r.json())
                 .then(resp => {
                     if (resp.error) { alert(resp.error); return; }
