@@ -4,6 +4,7 @@
 #argument use_globals: "True/Flase, include global materials in simulation. Global materials are products used as components for every composite product. E.g. eletricity"
 
 #section product_args
+#argument track_costs: "True/False, save measured costs at each time step for later analysis."
 
 #section composite_args
 

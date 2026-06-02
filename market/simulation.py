@@ -38,8 +38,8 @@ class Simulation:
 
     def __init__(self, economies : list[Economy] = None, config : dict = None):
         self.config = config
-        self.economies : list[Economy] = []
-        self.economy_groups : list[EconomyGroup] = []
+        self.economies : dict[int, Economy] = {}
+        self.economy_groups : dict[int, EconomyGroup] = {}
         self._next_economy_id : int = 0
         self._next_group_id : int = 0
         if economies:
@@ -62,7 +62,7 @@ class Simulation:
     def registerEconomy(self, economy : Economy) -> None:
         economy.id = self._next_economy_id
         self._next_economy_id += 1
-        self.economies.append(economy)
+        self.economies[economy.id] = economy
 
     def runNextGroupTimeStep(self, target_group : EconomyGroup) -> None:
         """
@@ -70,6 +70,13 @@ class Simulation:
         """
         for economy in target_group.members:
             economy.runNextTimeStep()
+
+    def forkEconomy(self, economy : Economy) -> Economy:
+        common_group = self.getGroupForEconomy(economy)
+        new_economy = economy.fork()
+        self.registerEconomy(new_economy)
+        common_group.addMember(new_economy)
+        return new_economy
 
     def createGroup(self, members : list[Economy], name : str = None) -> EconomyGroup:
         if name is None:
@@ -80,23 +87,34 @@ class Simulation:
         color = DEFAULT_GROUP_COLORS[self._next_group_id % len(DEFAULT_GROUP_COLORS)]
         group = EconomyGroup(self._next_group_id, name, members, color)
         self._next_group_id += 1
-        self.economy_groups.append(group)
+        self.economy_groups[group.id] = group
         return group
 
     def getEconomyById(self, economy_id : int) -> Economy:
-        for economy in self.economies:
-            if economy.id == economy_id:
-                return economy
-        return None
+        return self.economies.get(economy_id)
 
     def getGroupById(self, group_id : int) -> EconomyGroup:
-        for group in self.economy_groups:
-            if group.id == group_id:
-                return group
-        return None
+        return self.economy_groups.get(group_id)
 
     def getGroupForEconomy(self, economy : Economy) -> EconomyGroup:
-        for group in self.economy_groups:
+        for group in self.economy_groups.values():
             if economy in group.members:
                 return group
         return None
+    
+    def getParentId(self, economy_id: int) -> int|None:
+        current_econ = self.getEconomyById(economy_id)
+        if current_econ is None:
+            return None
+        return current_econ.parent_id #still int|None
+
+    def getAncestorIds(self, economy_id: int, max_depth: int = 10) -> list[int]:
+        ancestors = []
+        for i in range(max_depth):
+            parent_id = self.getParentId(economy_id)
+            if parent_id is not None:
+                ancestors.append(parent_id)
+                economy_id = parent_id
+            else:
+                return ancestors
+        return ancestors

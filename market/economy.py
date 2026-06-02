@@ -1,4 +1,6 @@
 
+import copy
+
 from market.graph import Graph
 from market.input.sim_args import ArgDict
 
@@ -35,10 +37,15 @@ class Economy:
         self.num_products = 0
         self.current_time_step: int = 0
         self.change_log: list = []
+        self.graph : Graph = None #assigned at layer connection time
         self.id : int = None #assigned by Simulation when registered
+        self.parent_id : int = None #set by fork() on the clone; stays None for root economies
+        self.creation_step : int = None #set by fork() on the clone; stays None for root economies
         #TODO handle args for abstract product types (if even needed)
+
         self.createLayers(arg_dicts)
         self.connectAllLayers()
+
         self.layers : dict[AnyProduct, Layer]
         self.snapshots : dict[int,EconomySnapshot] = {}
 
@@ -49,6 +56,8 @@ class Economy:
         """
         for material_type, arg_key in Economy.LAYER_ARGS.items():
             material_type : AnyProduct
+            abstract_product_args = node_args["product_args"].conts
+            node_args[arg_key].joinConts(abstract_product_args)
             material_args = node_args[arg_key].conts
             layer_size = material_args["layer_size"]
             layer_members : list[AnyProduct] = [] 
@@ -97,6 +106,7 @@ class Economy:
             if isinstance(layer.products[0], GlobalMaterial):
                 continue #globals aren't 'intelligent' and don't ever make 'decisions'.
             layer.makeDecisions()
+        self.snapshot()
     
     def snapshot(self) -> EconomySnapshot:
         """
@@ -105,3 +115,17 @@ class Economy:
         snapshot = EconomySnapshot(self,self.current_time_step)
         self.snapshots.update({self.current_time_step : snapshot})
         return snapshot
+    
+    def fork(self, new_name : str = None) -> 'Economy':
+        """
+        Make a clone of an existing economy at current time-step using deepcopy().
+        """
+        clone = copy.deepcopy(self)
+        clone.id = None
+        clone.parent_id = self.id
+        clone.creation_step = self.current_time_step
+        if new_name is None:
+            clone.name = f"{self.name} fork @t{clone.creation_step}"
+        else:
+            clone.name = new_name
+        return clone

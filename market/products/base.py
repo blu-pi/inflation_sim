@@ -24,6 +24,10 @@ class Product:
         self._id = None #wired soon after creation
         self.layer : Layer = None #wired soon after creation       
         self.sale_price = None
+
+        self.price_history : list[float] = []
+        self.total_cost_history : list[float] = []
+        self.flex_data_history : dict[str, list] = {} #for recording any other data points that might be relevant to flexible products in future; key is name of data point, value is list of values over time
     
     def setGlobalMaterials(self, global_materials : list) -> None:
         self.global_members = global_materials
@@ -35,12 +39,14 @@ class Product:
     def applyStrategy(self) -> None:
         self.strategy.apply()
     
-    def publishSalePrice(self, price : float) -> None:
+    def publishSalePrice(self, price : float, report : bool = True) -> None:
         """
         Publishes per-unit sale price of product to market. Might in future contain a fixed supply limit that buyers must compete for.
         For now, infinite supply is assumed.
         """
         self.sale_price = price
+        if report:
+            self.price_history.append(price)
 
     def setName(self, new_name : str) -> None:
         self.name = new_name
@@ -56,11 +62,13 @@ class Product:
         """Only called by method with same name from child class. Acts as base case for recursion."""
         return self.findTotalCost()
 
-    def findTotalCost(self) -> float:
-        """Return total cost of production of this product."""
+    def findTotalCost(self, report : bool = True) -> float:
+        """Return total cost of production of this product. Excludes component costs for composites."""
         total_cost : float = self.unit_cost
         if self not in self.global_members:
             total_cost += self.findGlobalCost()
+        if report:
+            self.total_cost_history.append(total_cost)
         return total_cost
     
     def findGlobalCost(self, weightings : dict = None) -> float:

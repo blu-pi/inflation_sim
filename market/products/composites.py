@@ -46,11 +46,13 @@ class Composite(Product):
         total_cost += self.getComponentCost()
         return total_cost
 
-    def findTotalCost(self) -> float:
+    def findTotalCost(self, report : bool = True) -> float:
         """
         Find total cost of production incurred by this Composite product based on published prices of it's components.
         Used to make accurate simulation-runtime decisions.
         """
-        total_cost = super().findTotalCost()
+        total_cost = super().findTotalCost(report=False)
         total_cost += self.getComponentPrice()
+        if report:
+            self.total_cost_history.append(total_cost)
         return total_cost

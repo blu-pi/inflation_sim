@@ -8,6 +8,7 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from market.analytics.comparison import EconomyPairComparison
 from market.analytics.events import AttributeChange, ChangeEvent, ChangeEventType, GraphStructureChange
 from market.analytics.snapshot import EconomySnapshot
 from market.economy import Economy
@@ -167,7 +168,6 @@ def _serialize_snapshot(snapshot: EconomySnapshot) -> dict:
                 'id': r.id,
                 'sale_price': r.sale_price,
                 'unit_cost': r.unit_cost,
-                'component_weights': r.component_weights,
             }
             for r in layer_records
         ]
@@ -207,7 +207,7 @@ def index():
             'title': key.replace('_', ' ').title(),
             'fields': fields,
         })
-    has_simulation = len(_simulation.economies) > 0
+    has_simulation = bool(_simulation.economies)
     group_id_raw = request.args.get('group_id', '').strip()
     attach_group = None
     if group_id_raw.isdigit():
@@ -254,23 +254,50 @@ def economy_view(economy_id):
     return render_template('simulation.html', economy_id=economy_id, economy_name=economy.name)
 
 
+@app.route('/compare')
+def comparison_view():
+    a_id = request.args.get('a', '').strip()
+    b_id = request.args.get('b', '').strip()
+    if not a_id.isdigit() or not b_id.isdigit():
+        return redirect(url_for('simulation_view'))
+    econ_a, err = _get_economy_or_404(int(a_id))
+    if err:
+        return redirect(url_for('simulation_view'))
+    econ_b, err = _get_economy_or_404(int(b_id))
+    if err:
+        return redirect(url_for('simulation_view'))
+    return render_template('comparison.html',
+                           a_id=econ_a.id, a_name=econ_a.name,
+                           b_id=econ_b.id, b_name=econ_b.name)
+
+
 @app.route('/api/simulation')
 def api_simulation():
     """Return the full simulation state: groups, their members, and timestep counts."""
     groups_payload = []
-    for group in _simulation.economy_groups:
+    for group in _simulation.economy_groups.values():
         members = []
         for economy in group.members:
+            # On a fork, hide annotations with timestamp < creation_step — those
+            # are entries inherited from the parent via deepcopy and are rendered
+            # only on the parent's lane to avoid duplication.
+            # Option B ensures no changes exist at creation_step at fork time, so
+            # events exactly at creation_step are always post-fork and belong to
+            # whichever economy's change_log they appear in.
+            fork_cutoff = economy.creation_step if economy.parent_id is not None else None
             change_counts: dict[int, int] = {}
             for event in economy.change_log:
+                if fork_cutoff is not None and event.timestamp < fork_cutoff:
+                    continue
                 change_counts[event.timestamp] = change_counts.get(event.timestamp, 0) + 1
             members.append({
                 'id': economy.id,
                 'name': economy.name,
                 'current_step': economy.current_time_step,
                 'use_globals': economy.sim_args.get('use_globals', False),
-                'snapshot_steps': sorted(economy.snapshots.keys()),
                 'change_counts': change_counts,
+                'parent_id': economy.parent_id,
+                'creation_step': economy.creation_step,
             })
         groups_payload.append({
             'id': group.id,
@@ -310,13 +337,27 @@ def api_economy_timestep(economy_id):
     return jsonify({'prices': _prices_for(node_map), 'step': economy.current_time_step})
 
 
-@app.route('/api/economy/<int:economy_id>/snapshot', methods=['POST'])
-def api_economy_create_snapshot(economy_id):
+@app.route('/api/economy/<int:economy_id>/fork', methods=['POST'])
+def api_economy_fork(economy_id):
     economy, err = _get_economy_or_404(economy_id)
     if err:
         return err
-    snapshot = economy.snapshot()
-    return jsonify({'step': snapshot.timestamp})
+    current_step = economy.current_time_step
+    if any(e.timestamp == current_step for e in economy.change_log):
+        return jsonify({
+            'error': (
+                f'Cannot fork while changes exist at the current step (t{current_step}). '
+                'Advance to the next step first.'
+            )
+        }), 409
+    clone = _simulation.forkEconomy(economy)
+    _cache_graph(clone)
+    return jsonify({
+        'id': clone.id,
+        'name': clone.name,
+        'parent_id': clone.parent_id,
+        'creation_step': clone.creation_step,
+    })
 
 
 @app.route('/api/economy/<int:economy_id>/snapshot/<int:step>')
@@ -448,6 +489,21 @@ def api_economy_update_unit_cost(economy_id, node_id):
     return jsonify({'unit_cost': product.unit_cost})
 
 
+@app.route('/api/economy/<int:economy_id>/node/<path:node_id>/history')
+def api_economy_node_history(economy_id, node_id):
+    economy, err = _get_economy_or_404(economy_id)
+    if err:
+        return err
+    node_map = _node_map_for(economy_id)
+    product = node_map.get(node_id)
+    if product is None:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify({
+        'sale_price': product.price_history,
+        'total_cost': product.total_cost_history,
+    })
+
+
 @app.route('/api/economy/<int:economy_id>/globals')
 def api_economy_globals(economy_id):
     economy, err = _get_economy_or_404(economy_id)
@@ -462,6 +518,46 @@ def api_economy_globals(economy_id):
             {'id': g.getDisplayName(), 'name': g.name, 'unit_cost': g.unit_cost}
             for g in economy.layers[GlobalMaterial].getMembers()
         ]
+    })
+
+
+@app.route('/api/compare')
+def api_compare():
+    a_id = request.args.get('a', '').strip()
+    b_id = request.args.get('b', '').strip()
+    if not a_id.isdigit() or not b_id.isdigit():
+        return jsonify({'error': 'Both a and b query params must be economy IDs'}), 400
+    econ_a, err = _get_economy_or_404(int(a_id))
+    if err:
+        return err
+    econ_b, err = _get_economy_or_404(int(b_id))
+    if err:
+        return err
+
+    comp = EconomyPairComparison(_simulation, (econ_a, econ_b))
+    comp.filterEventLogs()
+
+    def _econ_info(e):
+        group = _simulation.getGroupForEconomy(e)
+        return {
+            'id': e.id,
+            'name': e.name,
+            'current_step': e.current_time_step,
+            'group_name': group.name if group else None,
+            'group_color': group.color if group else None,
+            'parent_id': e.parent_id,
+            'creation_step': e.creation_step,
+        }
+
+    return jsonify({
+        'economy_a': _econ_info(econ_a),
+        'economy_b': _econ_info(econ_b),
+        'relation': comp.relation,
+        'shared_events': [_serialize_change_event(e) for e in comp.shared_events],
+        'unique_events': {
+            str(econ_a.id): [_serialize_change_event(e) for e in comp.unique_events[econ_a.id]],
+            str(econ_b.id): [_serialize_change_event(e) for e in comp.unique_events[econ_b.id]],
+        },
     })
 
 

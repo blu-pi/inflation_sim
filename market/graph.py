@@ -1,10 +1,7 @@
 import networkx as nx
-import matplotlib.pyplot as plt
 
 from itertools import repeat
 from typing import TYPE_CHECKING
-
-from market.input.runtime_ui import InteractiveGraphDisplay
 
 if TYPE_CHECKING:
     from market.products.product_layer import Layer
@@ -63,22 +60,3 @@ class Graph:
             
             info[node] = node_info
         return info
-    
-    def get_interactive_display(self, parent):
-        """Create an interactive Tkinter display for this graph"""
-        return InteractiveGraphDisplay(parent, self.nxg, self.pos, self.node_info)
-    
-    def display(self, interactive: bool = True, parent=None):
-        """
-        Display the graph either interactively (with Tkinter) or static (matplotlib)
-        
-        Args:
-            interactive: If True, show Tkinter window; if False, show static plot
-            parent: Tkinter parent widget for interactive mode
-        """
-        if interactive and parent:
-            return self.get_interactive_display(parent)
-        else:
-            # Fallback to original static display
-            nx.draw(self.nxg, with_labels=True, pos=self.pos)
-            plt.show(block=False)

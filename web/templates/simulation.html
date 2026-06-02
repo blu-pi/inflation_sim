@@ -403,9 +403,177 @@
             padding: 4px 2px 0;
             line-height: 1.35;
         }
+
+        /* --- Changelog modal --- */
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal-box {
+            background: #0f0e17;
+            border: 1px solid #2a2a3e;
+            border-radius: 8px;
+            width: 640px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #2a2a3e;
+            flex-shrink: 0;
+        }
+
+        .modal-title {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #fffffe;
+        }
+
+        .modal-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #a7a9be;
+            font-size: 1.1rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px 5px;
+            border-radius: 3px;
+            transition: color 0.15s, background 0.15s;
+        }
+        .modal-close:hover { color: #fffffe; background: #2a2a4e; }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+        }
+        .modal-body::-webkit-scrollbar { width: 4px; }
+        .modal-body::-webkit-scrollbar-track { background: transparent; }
+        .modal-body::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+        .cl-empty {
+            color: #a7a9be;
+            font-size: 0.82rem;
+            text-align: center;
+            margin-top: 32px;
+        }
+
+        .cl-event {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 7px 0;
+            border-bottom: 1px solid #1e1e30;
+            font-size: 0.78rem;
+        }
+
+        .cl-step {
+            flex-shrink: 0;
+            background: #1a1a2e;
+            border: 1px solid #3a3a5e;
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-size: 0.68rem;
+            color: #a7a9be;
+            font-variant-numeric: tabular-nums;
+            min-width: 44px;
+            text-align: center;
+        }
+
+        .cl-type {
+            flex-shrink: 0;
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-size: 0.66rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        .cl-type-unit_cost_changed  { background: #e65100; color: #ffe0b2; }
+        .cl-type-weight_changed     { background: #1a237e; color: #c5cae9; }
+        .cl-type-vertex_added       { background: #1b5e20; color: #c8e6c9; }
+        .cl-type-vertex_removed     { background: #b71c1c; color: #ffcdd2; }
+
+        .cl-detail { flex: 1; min-width: 0; line-height: 1.5; color: #d0d0e8; }
+        .cl-product { font-weight: 600; color: #fffffe; }
+        .cl-layer { color: #a7a9be; font-size: 0.72rem; margin-left: 4px; }
+        .cl-change { color: #a7a9be; font-size: 0.74rem; margin-top: 2px; }
+        .cl-old { color: #ef9a9a; }
+        .cl-arrow { color: #5a5a7a; margin: 0 3px; }
+        .cl-new { color: #a5d6a7; }
+        .cl-comp { color: #80cbc4; }
+
+        /* --- Snapshot modal --- */
+
+        .snapshot-chart-wrap {
+            position: relative;
+            height: 200px;
+            margin-bottom: 12px;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+        .stats-table th, .stats-table td {
+            padding: 5px 8px;
+            text-align: right;
+            border-bottom: 1px solid #1e1e30;
+            font-variant-numeric: tabular-nums;
+        }
+        .stats-table th { color: #a7a9be; font-weight: 600; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.06em; }
+        .stats-table td:first-child, .stats-table th:first-child { text-align: left; color: #d0d0e8; }
+
+        /* --- Data history modal --- */
+
+        .history-chart-wrap {
+            position: relative;
+            height: 260px;
+        }
+
+        .history-empty {
+            color: #a7a9be;
+            font-size: 0.82rem;
+            text-align: center;
+            margin-top: 48px;
+        }
+
+        .history-modal-box {
+            background: #0f0e17;
+            border: 1px solid #2a2a3e;
+            border-radius: 8px;
+            width: 680px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
     </style>
 </head>
-<body>
+<body data-economy-id="{{ economy_id }}">
     <header>
         <span>Inflation Simulation &mdash; {{ economy_name }} (id {{ economy_id }})</span>
         <a href="/sim_view">&larr; Back to Timeline</a>
@@ -424,11 +592,55 @@
         </div>
     </div>
 
+    <!-- Changelog modal -->
+    <div class="modal-overlay" id="changelog-modal" onclick="onModalOverlayClick(event)">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span class="modal-title">&#128221; Changelog</span>
+                <div class="modal-header-actions">
+                    <button class="btn" style="font-size:0.72rem;padding:3px 10px;" onclick="loadChangelog()">&#8635; Refresh</button>
+                    <button class="modal-close" onclick="closeChangelog()" title="Close">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" id="changelog-body">
+                <p class="cl-empty">Loading…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Snapshot modal -->
+    <div class="modal-overlay" id="snapshot-modal" onclick="onSnapshotOverlayClick(event)">
+        <div class="modal-box history-modal-box">
+            <div class="modal-header">
+                <span class="modal-title" id="snapshot-modal-title">&#9678; Snapshot</span>
+                <button class="modal-close" onclick="closeSnapshotModal()" title="Close">&times;</button>
+            </div>
+            <div class="modal-body" id="snapshot-modal-body">
+                <p class="history-empty">Loading&hellip;</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data history modal -->
+    <div class="modal-overlay" id="history-modal" onclick="onHistoryOverlayClick(event)">
+        <div class="modal-box history-modal-box">
+            <div class="modal-header">
+                <span class="modal-title" id="history-modal-title">&#128200; Data History</span>
+                <button class="modal-close" onclick="closeHistoryModal()" title="Close">&times;</button>
+            </div>
+            <div class="modal-body" id="history-modal-body">
+                <p class="history-empty">Loading…</p>
+            </div>
+        </div>
+    </div>
+
     <div class="toolbar">
         <button class="btn" onclick="resetView()">&#8635; Reset View</button>
         <button class="btn" onclick="exportPNG()">&#8659; Export PNG</button>
         <button class="btn" id="step-btn" onclick="stepTime()" style="border-color:#5c6bc0; color:#c5cae9;">&#9658; Next Step</button>
-        <button class="btn" id="snapshot-btn" onclick="createSnapshot()" style="border-color:#80cbc4; color:#80cbc4;">&#9678; Snapshot</button>
+        <button class="btn" id="snapshot-btn" onclick="viewCurrentSnapshot()" style="border-color:#80cbc4; color:#80cbc4;">&#9678; View Snapshot</button>
+        <button class="btn" id="changelog-btn" onclick="openChangelog()" style="border-color:#ff9800; color:#ffcc80;" title="View change log for this economy">&#128221; Changelog</button>
+        <button class="btn" id="fork-btn" onclick="forkEconomy()" style="border-color:#ab47bc; color:#ce93d8;" title="Fork this economy — only allowed when no changes have been made at the current step">&#9683; Fork</button>
         <span id="step-label" style="font-size:0.78rem; color:#a7a9be;"></span>
         <div class="legend">
             <div class="legend-item" id="global-legend-item" style="display:none">
@@ -447,11 +659,12 @@
     </div>
 
     <script>
-        const _economyId = {{ economy_id }};
+        const _economyId = parseInt(document.body.dataset.economyId, 10);
         const API_BASE = '/api/economy/' + _economyId;
 
         let network, nodes, edges;
         let _currentNodeId = null;
+        let _currentStep = 0;
         let _globalsData = { active: false, globals: [] };
 
         fetch(API_BASE + '/globals')
@@ -565,8 +778,11 @@
                 .then(resp => {
                     if (resp && resp.prices) {
                         applyPrices(resp.prices);
-                        if (typeof resp.step === 'number' && resp.step > 0) {
-                            document.getElementById('step-label').textContent = 'Step ' + resp.step;
+                        if (typeof resp.step === 'number') {
+                            _currentStep = resp.step;
+                            if (resp.step > 0) {
+                                document.getElementById('step-label').textContent = 'Step ' + resp.step;
+                            }
                         }
                     }
                 });
@@ -656,6 +872,11 @@
                 html += `<div class="prop-item">
                     <span class="prop-key">${key}</span>
                     <span class="prop-val">${val}</span>
+                </div>`;
+            }
+            if (nodeId) {
+                html += `<div style="margin-top:10px">
+                    <button class="btn-xs" onclick="openHistoryModal('${nodeId}', '${(info.name || nodeId).replace(/'/g, "\\'")}')">&#128200; Data History</button>
                 </div>`;
             }
             html += `</div>`;
@@ -798,6 +1019,7 @@
                 .then(resp => {
                     if (resp.error) { alert('Step error: ' + resp.error); return; }
 
+                    _currentStep = resp.step;
                     document.getElementById('step-label').textContent = 'Step ' + resp.step;
                     btn.textContent = '✓ Step ' + resp.step;
                     btn.disabled = false;
@@ -812,28 +1034,140 @@
                 });
         }
 
-        function createSnapshot() {
-            const btn = document.getElementById('snapshot-btn');
+        function forkEconomy() {
+            const btn = document.getElementById('fork-btn');
+            const label = document.getElementById('step-label');
             const prev = btn.textContent;
             btn.disabled = true;
-            btn.textContent = 'Snapshotting…';
-            fetch(API_BASE + '/snapshot', { method: 'POST' })
+            btn.textContent = 'Forking…';
+            fetch(API_BASE + '/fork', { method: 'POST' })
                 .then(r => r.json())
                 .then(resp => {
                     if (resp.error) {
-                        alert('Snapshot error: ' + resp.error);
                         btn.textContent = prev;
-                    } else {
-                        btn.textContent = '✓ Snapshot @ step ' + resp.step;
-                        setTimeout(() => { btn.textContent = prev; }, 1600);
+                        btn.disabled = false;
+                        // Show the reason inline next to the step label instead of a bare alert
+                        const old = label.textContent;
+                        label.style.color = '#ef9a9a';
+                        label.textContent = resp.error;
+                        setTimeout(() => {
+                            label.style.color = '';
+                            label.textContent = old;
+                        }, 4000);
+                        return;
                     }
-                    btn.disabled = false;
+                    window.location.href = '/sim_view';
                 })
                 .catch(err => {
-                    alert('Snapshot failed: ' + err);
+                    alert('Fork failed: ' + err);
                     btn.textContent = prev;
                     btn.disabled = false;
                 });
+        }
+
+        let _snapshotChart = null;
+
+        function viewCurrentSnapshot() {
+            if (_currentStep === 0) {
+                openSnapshotModal(null);
+                return;
+            }
+            fetch(API_BASE + '/snapshot/' + _currentStep)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) { alert(data.error); return; }
+                    openSnapshotModal(data);
+                });
+        }
+
+        function openSnapshotModal(snapshot) {
+            const modal = document.getElementById('snapshot-modal');
+            const body = document.getElementById('snapshot-modal-body');
+            const titleEl = document.getElementById('snapshot-modal-title');
+            if (_snapshotChart) { _snapshotChart.destroy(); _snapshotChart = null; }
+            if (!snapshot) {
+                titleEl.textContent = '陸 Snapshot';
+                body.innerHTML = '<p class="history-empty">No snapshot yet — advance the simulation first.</p>';
+                modal.classList.add('open');
+                return;
+            }
+            titleEl.textContent = '陸 Snapshot — step ' + snapshot.timestamp;
+            const layerEntries = Object.entries(snapshot.layer_insights);
+            const tableRows = layerEntries.map(([_, s]) => `
+                <tr>
+                    <td>${s.layer_name}</td>
+                    <td>${s.product_count}</td>
+                    <td>${fmtNum(s.mean_price)}</td>
+                    <td>${fmtNum(s.std_dev_price)}</td>
+                    <td>${fmtNum(s.min_price)}</td>
+                    <td>${fmtNum(s.max_price)}</td>
+                    <td>${fmtNum(s.mean_unit_cost)}</td>
+                </tr>
+            `).join('');
+            body.innerHTML = `
+                <div class="snapshot-chart-wrap"><canvas id="snapshot-chart-canvas"></canvas></div>
+                <table class="stats-table">
+                    <thead><tr>
+                        <th>Layer</th><th>#</th><th>Mean Price</th><th>Std Dev</th>
+                        <th>Min</th><th>Max</th><th>Mean Cost</th>
+                    </tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            `;
+            modal.classList.add('open');
+            const canvas = document.getElementById('snapshot-chart-canvas');
+            const labels = layerEntries.map(([_, s]) => s.layer_name);
+            const means = layerEntries.map(([_, s]) => s.mean_price);
+            const stds = layerEntries.map(([_, s]) => s.std_dev_price);
+            const colors = ['#7986cb', '#80cbc4', '#ffb74d', '#ef5350', '#66bb6a'];
+            _snapshotChart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Mean Price',
+                            data: means,
+                            backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+                            borderColor: '#0f0e17',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Std Dev',
+                            type: 'line',
+                            data: stds,
+                            borderColor: '#ffe0b2',
+                            backgroundColor: 'rgba(255,224,178,0.2)',
+                            tension: 0.25,
+                            pointRadius: 4,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { ticks: { color: '#a7a9be' }, grid: { color: '#1e1e30' } },
+                        y: { ticks: { color: '#a7a9be' }, grid: { color: '#1e1e30' }, beginAtZero: true },
+                    },
+                    plugins: { legend: { labels: { color: '#d0d0e8' } } },
+                },
+            });
+        }
+
+        function closeSnapshotModal() {
+            document.getElementById('snapshot-modal').classList.remove('open');
+            if (_snapshotChart) { _snapshotChart.destroy(); _snapshotChart = null; }
+        }
+
+        function onSnapshotOverlayClick(e) {
+            if (e.target === document.getElementById('snapshot-modal')) closeSnapshotModal();
+        }
+
+        function fmtNum(v) {
+            if (v === null || v === undefined) return '—';
+            return Number(v).toFixed(4);
         }
 
         /* ---- Pie chart logic ---- */
@@ -1052,6 +1386,188 @@
             }
         }
 
+        /* ---- Changelog modal ---- */
+
+        function openChangelog() {
+            document.getElementById('changelog-modal').classList.add('open');
+            loadChangelog();
+        }
+
+        function closeChangelog() {
+            document.getElementById('changelog-modal').classList.remove('open');
+        }
+
+        function onModalOverlayClick(e) {
+            if (e.target === document.getElementById('changelog-modal')) closeChangelog();
+        }
+
+        function loadChangelog() {
+            const body = document.getElementById('changelog-body');
+            body.innerHTML = '<p class="cl-empty">Loading…</p>';
+
+            fetch(API_BASE + '/changelog')
+                .then(r => r.json())
+                .then(resp => {
+                    const events = resp.events || [];
+                    if (!events.length) {
+                        body.innerHTML = '<p class="cl-empty">No changes recorded yet.</p>';
+                        return;
+                    }
+                    // Newest first
+                    const sorted = [...events].sort((a, b) => b.timestamp - a.timestamp);
+                    body.innerHTML = sorted.map(ev => renderChangelogEvent(ev)).join('');
+                })
+                .catch(err => {
+                    body.innerHTML = `<p class="cl-empty" style="color:#ef5350">Failed to load: ${err}</p>`;
+                });
+        }
+
+        const CL_TYPE_LABELS = {
+            'UNIT_COST_CHANGED': 'Unit Cost',
+            'WEIGHT_CHANGED':    'Weight',
+            'VERTEX_ADDED':      'Added',
+            'VERTEX_REMOVED':    'Removed',
+        };
+
+        function renderChangelogEvent(ev) {
+            const typeKey = (ev.event_type || '').toUpperCase();
+            const typeLabel = CL_TYPE_LABELS[typeKey] || ev.event_type;
+            const typeClass = 'cl-type-' + (ev.event_type || '').toLowerCase();
+
+            let detail = `<span class="cl-product">${ev.product_name}</span>` +
+                         `<span class="cl-layer">(${ev.layer_name})</span>`;
+
+            if (ev.component_name !== undefined && ev.component_name !== null) {
+                const oldFmt = ev.old_value !== null && ev.old_value !== undefined
+                    ? Number(ev.old_value).toFixed(4) : '—';
+                const newFmt = ev.new_value !== null && ev.new_value !== undefined
+                    ? Number(ev.new_value).toFixed(4) : '—';
+                detail += `<div class="cl-change">` +
+                    (ev.component_name ? `<span class="cl-comp">${ev.component_name}</span>: ` : '') +
+                    `<span class="cl-old">${oldFmt}</span>` +
+                    `<span class="cl-arrow">→</span>` +
+                    `<span class="cl-new">${newFmt}</span>` +
+                    `</div>`;
+            } else if (ev.other_product) {
+                detail += `<div class="cl-change"><span class="cl-comp">${ev.other_product}</span>` +
+                    (ev.other_layer ? ` <span class="cl-layer">(${ev.other_layer})</span>` : '') +
+                    `</div>`;
+            }
+
+            return `<div class="cl-event">
+                <span class="cl-step">t${ev.timestamp}</span>
+                <span class="cl-type ${typeClass}">${typeLabel}</span>
+                <div class="cl-detail">${detail}</div>
+            </div>`;
+        }
+
+        /* ---- Data history modal ---- */
+
+        let _historyChart = null;
+
+        function openHistoryModal(nodeId, nodeName) {
+            document.getElementById('history-modal-title').textContent = '\u{1F4C8} Data History — ' + nodeName;
+            document.getElementById('history-modal-body').innerHTML = '<p class="history-empty">Loading…</p>';
+            document.getElementById('history-modal').classList.add('open');
+
+            if (_historyChart) { _historyChart.destroy(); _historyChart = null; }
+
+            fetch(API_BASE + '/node/' + encodeURIComponent(nodeId) + '/history')
+                .then(r => r.json())
+                .then(data => renderHistoryChart(data))
+                .catch(err => {
+                    document.getElementById('history-modal-body').innerHTML =
+                        `<p class="history-empty" style="color:#ef5350">Failed to load: ${err}</p>`;
+                });
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.remove('open');
+            if (_historyChart) { _historyChart.destroy(); _historyChart = null; }
+        }
+
+        function onHistoryOverlayClick(e) {
+            if (e.target === document.getElementById('history-modal')) closeHistoryModal();
+        }
+
+        function renderHistoryChart(data) {
+            const prices = data.sale_price || [];
+            const costs  = data.total_cost || [];
+            const maxLen = Math.max(prices.length, costs.length);
+
+            const body = document.getElementById('history-modal-body');
+
+            if (maxLen === 0) {
+                body.innerHTML = '<p class="history-empty">No history recorded yet. Advance the simulation to collect data.</p>';
+                return;
+            }
+
+            const labels = Array.from({ length: maxLen }, (_, i) => i + 1);
+            body.innerHTML = '<div class="history-chart-wrap"><canvas id="history-chart-canvas"></canvas></div>';
+
+            const canvas = document.getElementById('history-chart-canvas');
+            const datasets = [];
+
+            if (prices.length > 0) {
+                datasets.push({
+                    label: 'Sale Price',
+                    data: prices,
+                    borderColor: '#7986cb',
+                    backgroundColor: 'rgba(121,134,203,0.12)',
+                    borderWidth: 2,
+                    pointRadius: prices.length > 40 ? 0 : 3,
+                    tension: 0,
+                    fill: false,
+                });
+            }
+
+            if (costs.length > 0) {
+                datasets.push({
+                    label: 'Total Cost',
+                    data: costs,
+                    borderColor: '#ffb74d',
+                    backgroundColor: 'rgba(255,183,77,0.10)',
+                    borderWidth: 2,
+                    pointRadius: costs.length > 40 ? 0 : 3,
+                    tension: 0,
+                    fill: false,
+                });
+            }
+
+            _historyChart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time Step', color: '#a7a9be', font: { size: 11 } },
+                            ticks: { color: '#a7a9be', maxTicksLimit: 12 },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                        },
+                        y: {
+                            title: { display: true, text: 'Value', color: '#a7a9be', font: { size: 11 } },
+                            ticks: { color: '#a7a9be' },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                        },
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#d0d0e8', font: { size: 11 }, boxWidth: 14 },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: items => 'Step ' + items[0].label,
+                                label: c => `${c.dataset.label}: ${Number(c.raw).toFixed(4)}`,
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         function applyWeights(secId) {
             const { editableNodeId } = _sectionData[secId];
             if (!editableNodeId) return;
@@ -1066,21 +1582,26 @@
 
             if (_pctDirty[secId]) {
                 const pctInputs = [...editor.querySelectorAll('.pct-input')];
+                const raw = {};
                 let sum = 0;
                 pctInputs.forEach(inp => {
                     const v = parseFloat(inp.value);
                     if (!isNaN(v) && v > 0) {
-                        weights[inp.dataset.comp] = v / 100;
+                        raw[inp.dataset.comp] = v;
                         sum += v;
                     } else {
                         allValid = false;
                     }
                 });
-                if (!allValid) { showWarn('All percentages must be positive numbers.'); return; }
-                if (Math.abs(sum - 100) > 0.5) {
-                    showWarn(`Percentages add up to ${sum.toFixed(1)}%, not 100%. Weights not changed.`);
-                    return;
-                }
+                if (!allValid || sum <= 0) { showWarn('All percentages must be positive numbers.'); return; }
+                // Preserve the original total absolute weight so that editing
+                // relative (%) values only redistributes the existing mass,
+                // rather than normalising everything to 1.0.
+                const { absData } = _sectionData[secId];
+                const origTotal = (absData && Object.keys(absData).length > 0)
+                    ? Object.values(absData).reduce((a, b) => a + b, 0)
+                    : 1.0;
+                for (const k in raw) weights[k] = (raw[k] / sum) * origTotal;
             } else {
                 const absInputs = [...editor.querySelectorAll('.abs-input')];
                 absInputs.forEach(inp => {

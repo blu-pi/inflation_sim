@@ -73,17 +73,12 @@ class EconomySnapshot:
                 continue  #globals don't publish sale_price; mirrors Economy.runNextTimeStep
             layer_records : list[ProductRecord] = []
             for product in layer.getMembers():
-                component_weights = None
-                if product.hasComponents():
-                    component_weights = {p.name: w for p, w in product.components.getNormalisedWeights().items()}
-
                 record = ProductRecord(
                     name = product.name,
                     layer_name = product.getLayerName(),
                     id = product.getId(),
                     sale_price = product.sale_price,
-                    unit_cost = product.unit_cost,
-                    component_weights = component_weights
+                    unit_cost = product.unit_cost
                 )
                 layer_records.append(record)
             layer_name = layer_records[0].layer_name
