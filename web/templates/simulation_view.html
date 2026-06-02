@@ -498,12 +498,62 @@
             text-align: left;
             flex-shrink: 0;
         }
+
+        /* ---- Compare toggle ---- */
+        .btn-compare {
+            padding: 7px 14px;
+            font-size: 0.82rem;
+            border-radius: 5px;
+            border: 1px solid #ffb74d;
+            background: rgba(255,183,77,0.12);
+            color: #ffb74d;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .btn-compare:hover { background: rgba(255,183,77,0.25); }
+
+        .compare-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1.5px solid #3a3a5e;
+            background: transparent;
+            color: #5a5a78;
+            cursor: pointer;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+            margin-right: 4px;
+            transition: border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
+            line-height: 1;
+            padding: 0;
+        }
+        .compare-toggle:hover {
+            border-color: #ffb74d;
+            color: #ffb74d;
+        }
+        .compare-toggle.compare-mode {
+            border-color: rgba(255,183,77,0.5);
+            color: #ffb74d;
+        }
+        .compare-toggle.compare-active {
+            background: rgba(255,183,77,0.22);
+            border-color: #ffb74d;
+            color: #ffb74d;
+            box-shadow: 0 0 0 3px rgba(255,183,77,0.15);
+        }
     </style>
 </head>
 <body>
     <header>
         <span class="title">Inflation Simulation &mdash; Timeline</span>
-        <a href="/">+ New Economy</a>
+        <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-compare" id="btn-compare" style="display:none" onclick="goCompare()" title="Compare selected economies">Compare (<span id="compare-count">0</span>/2)</button>
+            <a href="/">+ New Economy</a>
+        </div>
     </header>
 
     <main id="main">
@@ -641,6 +691,8 @@
 
             // post-render: draw fork connectors for each group
             requestAnimationFrame(drawAllForkConnectors);
+            // post-render: restore compare toggle state
+            updateCompareUI();
         }
 
         function renderSharedAxis(maxStep) {
@@ -738,6 +790,7 @@
                           ondragstart="onLaneDragStart(event, ${group.id}, ${economy.id})"
                           ondragend="onDragEnd(event)"
                           title="Drag to reorder economy within group">&#8942;&#8942;</span>
+                    <button class="compare-toggle" data-economy-id="${economy.id}" onclick="toggleCompare(${economy.id}, this)" title="Select for comparison">&#9679;</button>
                     <span class="lane-label" title="${escapeAttr(economy.name)}">${escapeAttr(economy.name)}</span>
                     <div class="lane-nodes">${slots}</div>
                 </div>
@@ -839,6 +892,48 @@
                     if (resp.error) { alert(resp.error); return; }
                     loadSimulation();
                 });
+        }
+
+        /* ---- Compare selection ---- */
+        let _compareSet = new Set();
+
+        function toggleCompare(economyId, btn) {
+            if (_compareSet.has(economyId)) {
+                _compareSet.delete(economyId);
+            } else {
+                _compareSet.add(economyId);
+            }
+            updateCompareUI();
+            if (_compareSet.size === 2) {
+                const ids = Array.from(_compareSet);
+                window.location.href = '/compare?a=' + ids[0] + '&b=' + ids[1];
+            }
+        }
+
+        function goCompare() {
+            const ids = Array.from(_compareSet);
+            if (ids.length === 2) {
+                window.location.href = '/compare?a=' + ids[0] + '&b=' + ids[1];
+            }
+        }
+
+        function updateCompareUI() {
+            const inMode = _compareSet.size > 0;
+            const toggles = document.querySelectorAll('.compare-toggle');
+            toggles.forEach(btn => {
+                const eid = parseInt(btn.dataset.economyId, 10);
+                btn.classList.toggle('compare-mode', inMode);
+                btn.classList.toggle('compare-active', _compareSet.has(eid));
+                btn.title = _compareSet.has(eid) ? 'Deselect' : 'Select for comparison';
+            });
+            const headerBtn = document.getElementById('btn-compare');
+            const countSpan = document.getElementById('compare-count');
+            if (headerBtn) {
+                headerBtn.style.display = inMode ? '' : 'none';
+            }
+            if (countSpan) {
+                countSpan.textContent = _compareSet.size;
+            }
         }
 
         let _colorDebounce = {};

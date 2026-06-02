@@ -21,6 +21,14 @@ class ChangeEvent:
         self.product_name = product_name
         self.layer_name = layer_name
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ChangeEvent):
+            return NotImplemented
+        return (self.timestamp == other.timestamp
+                and self.event_type == other.event_type
+                and self.product_name == other.product_name
+                and self.layer_name == other.layer_name)
+
 
 class AttributeChange(ChangeEvent):
 
@@ -31,6 +39,14 @@ class AttributeChange(ChangeEvent):
         self.new_value = new_value
         self.component_name = component_name
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AttributeChange):
+            return NotImplemented
+        return (super().__eq__(other)
+                and self.old_value == other.old_value
+                and self.new_value == other.new_value
+                and self.component_name == other.component_name)
+
 
 class GraphStructureChange(ChangeEvent):
 
@@ -39,3 +55,10 @@ class GraphStructureChange(ChangeEvent):
         super().__init__(timestamp, event_type, product_name, layer_name)
         self.other_product = other_product
         self.other_layer = other_layer
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GraphStructureChange):
+            return NotImplemented
+        return (super().__eq__(other)
+                and self.other_product == other.other_product
+                and self.other_layer == other.other_layer)

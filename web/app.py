@@ -8,6 +8,7 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from market.analytics.comparison import EconomyPairComparison
 from market.analytics.events import AttributeChange, ChangeEvent, ChangeEventType, GraphStructureChange
 from market.analytics.snapshot import EconomySnapshot
 from market.economy import Economy
@@ -251,6 +252,23 @@ def economy_view(economy_id):
     if err:
         return redirect(url_for('simulation_view'))
     return render_template('simulation.html', economy_id=economy_id, economy_name=economy.name)
+
+
+@app.route('/compare')
+def comparison_view():
+    a_id = request.args.get('a', '').strip()
+    b_id = request.args.get('b', '').strip()
+    if not a_id.isdigit() or not b_id.isdigit():
+        return redirect(url_for('simulation_view'))
+    econ_a, err = _get_economy_or_404(int(a_id))
+    if err:
+        return redirect(url_for('simulation_view'))
+    econ_b, err = _get_economy_or_404(int(b_id))
+    if err:
+        return redirect(url_for('simulation_view'))
+    return render_template('comparison.html',
+                           a_id=econ_a.id, a_name=econ_a.name,
+                           b_id=econ_b.id, b_name=econ_b.name)
 
 
 @app.route('/api/simulation')
@@ -500,6 +518,46 @@ def api_economy_globals(economy_id):
             {'id': g.getDisplayName(), 'name': g.name, 'unit_cost': g.unit_cost}
             for g in economy.layers[GlobalMaterial].getMembers()
         ]
+    })
+
+
+@app.route('/api/compare')
+def api_compare():
+    a_id = request.args.get('a', '').strip()
+    b_id = request.args.get('b', '').strip()
+    if not a_id.isdigit() or not b_id.isdigit():
+        return jsonify({'error': 'Both a and b query params must be economy IDs'}), 400
+    econ_a, err = _get_economy_or_404(int(a_id))
+    if err:
+        return err
+    econ_b, err = _get_economy_or_404(int(b_id))
+    if err:
+        return err
+
+    comp = EconomyPairComparison(_simulation, (econ_a, econ_b))
+    comp.filterEventLogs()
+
+    def _econ_info(e):
+        group = _simulation.getGroupForEconomy(e)
+        return {
+            'id': e.id,
+            'name': e.name,
+            'current_step': e.current_time_step,
+            'group_name': group.name if group else None,
+            'group_color': group.color if group else None,
+            'parent_id': e.parent_id,
+            'creation_step': e.creation_step,
+        }
+
+    return jsonify({
+        'economy_a': _econ_info(econ_a),
+        'economy_b': _econ_info(econ_b),
+        'relation': comp.relation,
+        'shared_events': [_serialize_change_event(e) for e in comp.shared_events],
+        'unique_events': {
+            str(econ_a.id): [_serialize_change_event(e) for e in comp.unique_events[econ_a.id]],
+            str(econ_b.id): [_serialize_change_event(e) for e in comp.unique_events[econ_b.id]],
+        },
     })
 
 
