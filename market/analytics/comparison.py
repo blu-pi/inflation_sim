@@ -29,7 +29,7 @@ class EconomyPairComparison:
         self.sim = sim
         self.economies = economy_pair
         self.relation: RelationType = self._validate_relationship()
-        self.shared_events: list['ChangeEvent'] = None
+        self.shared_events: list[ChangeEvent] = None
         self.unique_events: dict[int,list[ChangeEvent]] = None
 
     def _validate_relationship(self) -> RelationType:

@@ -295,7 +295,6 @@
 
         .annot-lane {
             display: flex;
-            margin-left: 156px;
             margin-top: -2px;
             margin-bottom: 6px;
             min-height: 52px;
@@ -487,7 +486,6 @@
 
         .step-axis {
             display: flex;
-            margin-left: 156px;
             margin-top: 8px;
             font-size: 0.65rem;
             color: #6a6a8a;
@@ -689,8 +687,8 @@
                 renderSharedAxis(maxStep) +
                 '</div>';
 
-            // post-render: draw fork connectors for each group
-            requestAnimationFrame(drawAllForkConnectors);
+            // post-render: draw fork connectors & align axes/annotations
+            redrawConnectorsAndAxes();
             // post-render: restore compare toggle state
             updateCompareUI();
         }
@@ -845,7 +843,30 @@
             }
         }
 
-        window.addEventListener('resize', () => requestAnimationFrame(drawAllForkConnectors));
+        function alignAxesAndAnnotations() {
+            const firstLaneNodes = document.querySelector('.lane-nodes');
+            const simWrap = document.querySelector('.sim-wrap');
+            if (!firstLaneNodes || !simWrap) return;
+
+            const nodesLeft = firstLaneNodes.getBoundingClientRect().left;
+            const wrapLeft = simWrap.getBoundingClientRect().left;
+            const offset = nodesLeft - wrapLeft;
+
+            document.querySelectorAll('.annot-lane').forEach(el => {
+                el.style.marginLeft = offset + 'px';
+            });
+            const axis = document.querySelector('.step-axis');
+            if (axis) axis.style.marginLeft = offset + 'px';
+        }
+
+        function redrawConnectorsAndAxes() {
+            requestAnimationFrame(() => {
+                drawAllForkConnectors();
+                alignAxesAndAnnotations();
+            });
+        }
+
+        window.addEventListener('resize', redrawConnectorsAndAxes);
 
         function renderAnnotations(economy, maxStep) {
             const changeCounts = economy.change_counts || {};
