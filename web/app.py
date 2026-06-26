@@ -152,12 +152,7 @@ def _serialize_snapshot(snapshot: EconomySnapshot) -> dict:
     for layer_name, stats in snapshot.layer_insights.items():
         layer_insights[layer_name] = {
             'layer_name': stats.layer_name,
-            'product_count': stats.product_count,
-            'mean_price': stats.mean_price,
-            'std_dev_price': stats.std_dev_price,
-            'min_price': stats.min_price,
-            'max_price': stats.max_price,
-            'mean_unit_cost': stats.mean_unit_cost,
+            'stats': stats.stats.as_list(),
         }
     records = {}
     for layer_name, layer_records in snapshot.record_dict.items():
