@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from market.analytics.comparison import EconomyPairComparison
 from market.analytics.events import AttributeChange, ChangeEvent, ChangeEventType, GraphStructureChange
 from market.analytics.snapshot import EconomySnapshot
+from market.analytics.timeseries import EconomyTimeSeries
 from market.economy import Economy
 from market.graph import Graph
 from market.input.sim_args import (
@@ -590,6 +591,72 @@ def api_group_name(group_id):
         return jsonify({'error': 'Missing name'}), 400
     group.setName(name)
     return jsonify({'group_id': group_id, 'name': group.name})
+
+
+# ---------------------------------------------------------------------------
+#  Time-series analytics
+# ---------------------------------------------------------------------------
+
+def _serialize_timeseries(ets: EconomyTimeSeries) -> dict:
+    """Convert an EconomyTimeSeries into a JSON-friendly dict."""
+    layers: dict = {}
+    for layer_name, lts in ets.layer_series.items():
+        products = []
+        for ps in lts.product_series:
+            products.append({
+                'product_name': ps.product_name,
+                'layer_name': ps.layer_name,
+                'layer_based_id': ps.layer_based_id,
+                'price_history': ps.price_history,
+                'total_cost_history': ps.total_cost_history,
+                'margin_history': ps.margin_history,
+                'flex_data': {k: v for k, v in ps.flex_data.items()},
+                'unit_cost': ps.unit_cost,
+                'steps': ps.steps,
+            })
+        aggregates = {}
+        for field, agg_dict in lts.precomputed.items():
+            aggregates[field] = {agg: vals for agg, vals in agg_dict.items()}
+        # collect flex field names across all products in this layer
+        flex_fields: list[str] = []
+        seen = set()
+        for ps in lts.product_series:
+            for k in ps.flex_data:
+                if k not in seen:
+                    flex_fields.append(k)
+                    seen.add(k)
+        layers[layer_name] = {
+            'layer_name': lts.layer_name,
+            'steps': lts.steps,
+            'products': products,
+            'aggregates': aggregates,
+            'flex_fields': flex_fields,
+        }
+    return {
+        'economy_id': ets.economy_id,
+        'economy_name': ets.economy_name,
+        'steps': ets.steps,
+        'layers': layers,
+    }
+
+
+@app.route('/economy/<int:economy_id>/timeseries')
+def economy_timeseries_view(economy_id):
+    economy, err = _get_economy_or_404(economy_id)
+    if err:
+        return redirect(url_for('simulation_view'))
+    return render_template('timeseries.html',
+                           economy_id=economy_id,
+                           economy_name=economy.name)
+
+
+@app.route('/api/economy/<int:economy_id>/timeseries')
+def api_economy_timeseries(economy_id):
+    economy, err = _get_economy_or_404(economy_id)
+    if err:
+        return err
+    ets = EconomyTimeSeries(economy)
+    return jsonify(_serialize_timeseries(ets))
 
 
 def start(host='127.0.0.1', port=5000):

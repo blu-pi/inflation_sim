@@ -5,7 +5,7 @@ from collections.abc import Iterable
 class DescriptiveStats:
     """
     Descriptive statistics for a single numerical dataset, with a label.
-    Low key just pandas but worse =)
+    Low key just lightweight pandas but worse =)
 
     >>> ds = DescriptiveStats([2, 4, 4, 4, 5, 5, 7, 9], label="Sale Price")
     >>> ds.mean
@@ -28,6 +28,44 @@ class DescriptiveStats:
         self.population_stdev: float = statistics.pstdev(vals) if n >= 2 else 0.0
         self.sample_stdev: float = statistics.stdev(vals) if n >= 2 else 0.0
         self.variance: float = statistics.pvariance(vals) if n >= 2 else 0.0
+
+    @staticmethod
+    def getChangeRate(data: list[float]) -> list[float | None]:
+        """Returns None-padded slope measure at all time-steps"""
+        # In this example delta = slope since it's only measured over time delta 1.
+        # Slope = delta y / delta x and since delta x is always 1, slope = delta y
+        out = []
+        prev = None
+        delta = None
+        if len(data) < 2:
+            return [None] * len(data)
+        for value in data:
+            if prev is not None:
+                delta = value - prev
+            prev = value
+            out.append(delta)
+        return out
+
+    @staticmethod
+    def getMovingAverage(data: list[float], window: int = 3) -> list[float | None]:
+        """Returns None-padded simple moving average at all time-steps.
+
+        The first ``window - 1`` entries are None because there aren't enough
+        prior values to fill the window.  Subsequent entries are the unweighted
+        mean of the *window* most recent values (inclusive of the current step).
+        """
+        out: list[float | None] = []
+        if window < 1:
+            raise ValueError("window must be >= 1")
+        if len(data) < window:
+            return [None] * len(data)
+        for i in range(len(data)):
+            if i < window - 1:
+                out.append(None)
+            else:
+                window_slice = data[i - window + 1 : i + 1]
+                out.append(sum(window_slice) / window)
+        return out
 
     def __repr__(self) -> str:
         return (

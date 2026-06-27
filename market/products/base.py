@@ -75,7 +75,7 @@ class Product:
         """
         Calculates total cost of global products required for production of this product.
         For now, simply sums unit costs of all global products. 
-        In future, may include weight that can be adjusted per product.
+        In future, may include weight that can be adjusted per product. (Might sort of defeat the purpose of global products)
         """
         if self.global_members is None or len(self.global_members) == 0:
             return 0

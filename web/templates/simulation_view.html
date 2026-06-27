@@ -543,6 +543,30 @@
             color: #ffb74d;
             box-shadow: 0 0 0 3px rgba(255,183,77,0.15);
         }
+
+        .ts-lane-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1.5px solid #3a3a5e;
+            background: transparent;
+            color: #5a5a78;
+            cursor: pointer;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            margin-right: 4px;
+            text-decoration: none;
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
+            line-height: 1;
+        }
+        .ts-lane-btn:hover {
+            border-color: #42a5f5;
+            color: #42a5f5;
+            background: rgba(66,165,245,0.1);
+        }
     </style>
 </head>
 <body>
@@ -789,6 +813,7 @@
                           ondragend="onDragEnd(event)"
                           title="Drag to reorder economy within group">&#8942;&#8942;</span>
                     <button class="compare-toggle" data-economy-id="${economy.id}" onclick="toggleCompare(${economy.id}, this)" title="Select for comparison">&#9679;</button>
+                    <a class="ts-lane-btn" href="/economy/${economy.id}/timeseries" title="Time-series analytics for ${escapeAttr(economy.name)}">&#128200;</a>
                     <span class="lane-label" title="${escapeAttr(economy.name)}">${escapeAttr(economy.name)}</span>
                     <div class="lane-nodes">${slots}</div>
                 </div>
