@@ -1,8 +1,8 @@
 
-import statistics
 from typing import TYPE_CHECKING
 
 from market.products.globals import GlobalMaterial
+from util.stats import DescriptiveStats, StatsCollection
 
 if TYPE_CHECKING:
     from market.economy import Economy
@@ -16,6 +16,7 @@ class ProductRecord:
         id: int,
         sale_price: float,
         unit_cost: float,
+        production_cost: float = None,
         component_weights: dict[str, float] | None = None,
     ) -> None:
         self.name = name
@@ -27,36 +28,27 @@ class ProductRecord:
 
 
 class LayerStats:
-    def __init__(
-        self,
-        layer_name: str,
-        product_count: int,
-        mean_price: float,
-        std_dev_price: float,
-        min_price: float,
-        max_price: float,
-        mean_unit_cost: float,
-    ) -> None:
+    """
+    Per-layer aggregate statistics, backed by a StatsCollection.
+
+    The frontend consumes ``stats.as_list()`` (a list of labelled stat dicts)
+    rather than flat named properties, so adding a new metric only requires
+    adding a DescriptiveStats to the collection in createFromList().
+    """
+
+    def __init__(self, layer_name: str, stats_collection: StatsCollection) -> None:
         self.layer_name = layer_name
-        self.product_count = product_count
-        self.mean_price = mean_price
-        self.std_dev_price = std_dev_price
-        self.min_price = min_price
-        self.max_price = max_price
-        self.mean_unit_cost = mean_unit_cost
+        self.stats = stats_collection  # StatsCollection with labels "Sale Price" & "Unit Cost"
 
     @classmethod
     def createFromList(cls, records: list[ProductRecord]) -> 'LayerStats':
         prices = [r.sale_price for r in records]
-        return cls(
-            layer_name=records[0].layer_name,
-            product_count=len(records),
-            mean_price=statistics.mean(prices),
-            std_dev_price=statistics.pstdev(prices),
-            min_price=min(prices),
-            max_price=max(prices),
-            mean_unit_cost=statistics.mean(r.unit_cost for r in records),
+        costs = [r.unit_cost for r in records]
+        sc = StatsCollection(
+            DescriptiveStats(prices, label="Sale Price"),
+            DescriptiveStats(costs, label="Unit Cost"),
         )
+        return cls(layer_name=records[0].layer_name, stats_collection=sc)
 
 
 class EconomySnapshot:
@@ -72,13 +64,14 @@ class EconomySnapshot:
             if layer.getMembers() and isinstance(layer.getMembers()[0], GlobalMaterial):
                 continue  #globals don't publish sale_price; mirrors Economy.runNextTimeStep
             layer_records : list[ProductRecord] = []
-            for product in layer.getMembers():
+            for product in layer.getMembers():          
                 record = ProductRecord(
                     name = product.name,
                     layer_name = product.getLayerName(),
                     id = product.getId(),
                     sale_price = product.sale_price,
-                    unit_cost = product.unit_cost
+                    unit_cost = product.unit_cost,
+                    production_cost = product.total_cost_history[-1] if product.total_cost_history else None
                 )
                 layer_records.append(record)
             layer_name = layer_records[0].layer_name

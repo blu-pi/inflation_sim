@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time-Series Analytics — {{ economy_name }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background: #1a1a2e;
+            color: #fffffe;
+        }
+
+        header {
+            background: #0f0e17;
+            padding: 0 16px;
+            height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            border-bottom: 1px solid #2a2a3e;
+        }
+        header .title { font-weight: 600; font-size: 0.95rem; }
+        header a {
+            color: #a7a9be;
+            text-decoration: none;
+            font-size: 0.82rem;
+            transition: color 0.15s;
+        }
+        header a:hover { color: #fffffe; }
+        header .header-links { display: flex; gap: 14px; align-items: center; }
+
+        .main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* ---- Sidebar ---- */
+        .sidebar {
+            width: 370px;
+            flex-shrink: 0;
+            background: #0f0e17;
+            border-right: 1px solid #2a2a3e;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-top {
+            padding: 12px 14px;
+            border-bottom: 1px solid #2a2a3e;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .sidebar-top h3 {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #a7a9be;
+        }
+
+        .btn {
+            padding: 5px 13px;
+            border-radius: 4px;
+            border: 1px solid #3a3a5e;
+            background: #1a1a2e;
+            color: #d0d0e8;
+            cursor: pointer;
+            font-size: 0.78rem;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .btn:hover { background: #2a2a4e; }
+
+        .btn-primary {
+            background: #283593;
+            color: #e8eaf6;
+            border-color: #5c6bc0;
+        }
+        .btn-primary:hover { background: #3949ab; }
+
+        .btn-danger {
+            border-color: #b71c1c;
+            color: #ef9a9a;
+            background: transparent;
+        }
+        .btn-danger:hover { background: rgba(183,28,28,0.25); color: #ffcdd2; }
+
+        .series-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .series-list::-webkit-scrollbar { width: 4px; }
+        .series-list::-webkit-scrollbar-track { background: transparent; }
+        .series-list::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+        .series-empty {
+            padding: 32px 20px;
+            text-align: center;
+            color: #6a6a8a;
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }
+
+        .series-card {
+            margin: 6px 10px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            border-radius: 6px;
+            border-left: 4px solid var(--s-color);
+            overflow: hidden;
+            transition: border-color 0.15s, opacity 0.15s;
+        }
+        .series-card.series-hidden { opacity: 0.45; }
+        .series-card.series-hidden .s-color-dot { opacity: 0.4; }
+
+        .series-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .series-card-header .s-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--s-color);
+            flex-shrink: 0;
+        }
+        .series-card-header .s-label {
+            flex: 1;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #d0d0e8;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .series-card-header .s-remove {
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            color: #6a6a8a;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0 4px;
+            transition: color 0.15s;
+        }
+        .series-card-header .s-remove:hover { color: #ef5350; }
+        .series-card-header .s-vis-toggle {
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            color: #6a6a8a;
+            cursor: pointer;
+            font-size: 0.85rem;
+            line-height: 1;
+            padding: 0 2px;
+            transition: color 0.15s;
+        }
+        .series-card-header .s-vis-toggle:hover { color: #90caf9; }
+        .series-card.series-hidden .s-vis-toggle { color: #3a3a5e; }
+        .series-card.series-hidden .s-vis-toggle:hover { color: #ffb74d; }
+        .series-card-header .s-caret {
+            flex-shrink: 0;
+            font-size: 0.6rem;
+            color: #6a6a8a;
+            transition: transform 0.2s;
+        }
+        .series-card.open .series-card-header .s-caret { transform: rotate(90deg); }
+
+        .series-card-body {
+            display: none;
+            padding: 0 10px 10px;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .series-card.open .series-card-body { display: flex; }
+
+        .field-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .field-row label {
+            font-size: 0.67rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6a6a8a;
+            flex-shrink: 0;
+            min-width: 40px;
+        }
+
+        select, input[type="number"] {
+            padding: 4px 6px;
+            background: #0f0e17;
+            border: 1px solid #3a3a5e;
+            border-radius: 3px;
+            color: #fffffe;
+            font-size: 0.74rem;
+            font-family: inherit;
+        }
+        select:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #5c6bc0;
+        }
+        select { max-width: 140px; }
+        input[type="number"] { width: 50px; }
+
+        .source-toggle {
+            display: flex;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+        .source-toggle button {
+            padding: 3px 9px;
+            font-size: 0.68rem;
+            border: 1px solid #3a3a5e;
+            background: transparent;
+            color: #a7a9be;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .source-toggle button:first-child { border-radius: 3px 0 0 3px; }
+        .source-toggle button:last-child { border-radius: 0 3px 3px 0; }
+        .source-toggle button.active {
+            background: #283593;
+            color: #e8eaf6;
+            border-color: #5c6bc0;
+        }
+
+        /* ---- Chart area ---- */
+        .chart-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .chart-wrap {
+            flex: 1;
+            position: relative;
+            padding: 16px 20px 8px;
+        }
+        .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+        .chart-empty {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6a6a8a;
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+
+        /* ---- Footer toolbar ---- */
+        .chart-toolbar {
+            padding: 6px 16px;
+            background: #0f0e17;
+            border-top: 1px solid #2a2a3e;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .chart-toolbar .step-info {
+            font-size: 0.72rem;
+            color: #a7a9be;
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body data-economy-id="{{ economy_id }}">
+    <header>
+        <span class="title">&#128200; Time-Series Analytics &mdash; {{ economy_name }} (id {{ economy_id }})</span>
+        <div class="header-links">
+            <a href="/economy/{{ economy_id }}">&larr; Graph View</a>
+            <a href="/sim_view">&larr; Timeline</a>
+        </div>
+    </header>
+
+    <div class="main">
+        <!-- Sidebar: series builder -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-top">
+                <h3>Data Series</h3>
+                <button class="btn btn-primary" onclick="addSeries()" title="Add a new data series to the chart">+ Add Series</button>
+            </div>
+            <div class="series-list" id="series-list">
+                <div class="series-empty">No series added yet.<br>Click <strong>+ Add Series</strong> to start graphing.</div>
+            </div>
+        </div>
+
+        <!-- Chart area -->
+        <div class="chart-area">
+            <div class="chart-wrap" id="chart-wrap">
+                <canvas id="chart"></canvas>
+                <div class="chart-empty" id="chart-empty">Add one or more series to see the chart.</div>
+            </div>
+            <div class="chart-toolbar">
+                <button class="btn" onclick="resetZoom()" title="Reset zoom to show all data">&#8635; Reset Zoom</button>
+                <button class="btn" onclick="exportChartPNG()" title="Export chart as PNG image">&#8659; Export PNG</button>
+                <span class="step-info" id="step-info"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // -------------------------------------------------------------------
+        //  Constants & state
+        // -------------------------------------------------------------------
+
+        const API_BASE = '/api/economy/' + parseInt(document.body.dataset.economyId, 10);
+
+        const COLORS = [
+            '#5c6bc0', '#ef5350', '#66bb6a', '#ffa726', '#ab47bc',
+            '#26c6da', '#ec407a', '#78909c', '#ffca28', '#7e57c2',
+            '#42a5f5', '#9ccc65', '#ff7043', '#8d6e73', '#bdbdbd',
+        ];
+
+        const BUILTIN_FIELDS = ['price', 'total_cost', 'margin'];
+        const AGGREGATES = ['mean', 'median', 'min', 'max', 'std'];
+
+        const TRANSFORMS = {
+            none: {
+                label: 'None',
+                fn: (data) => data,
+                hasParams: false,
+            },
+            change_rate: {
+                label: 'Change Rate',
+                fn: getChangeRate,
+                hasParams: false,
+            },
+            moving_average: {
+                label: 'Moving Avg',
+                fn: getMovingAverage,
+                hasParams: true,
+                defaultParams: { window: 3 },
+            },
+        };
+
+        // Full dataset from the API, set once on load.
+        let _fullData = null;
+
+        // Array of active series descriptors:
+        // { id, color, layerName, sourceType: 'product'|'aggregate',
+        //   productName?, aggType?, field, transform, transformParams, visible }
+        let _series = [];
+        let _nextId = 0;
+
+        // Track which card bodies are expanded so they survive re-renders
+        let _openCardIds = new Set();
+
+        let _chart = null;
+        let _chartInstance = null;
+
+        // -------------------------------------------------------------------
+        //  Transform implementations (mirror util/stats.py)
+        // -------------------------------------------------------------------
+
+        function getChangeRate(data) {
+            const out = new Array(data.length).fill(null);
+            for (let i = 1; i < data.length; i++) {
+                out[i] = data[i] - data[i - 1];
+            }
+            return out;
+        }
+
+        function getMovingAverage(data, window) {
+            const out = new Array(data.length).fill(null);
+            if (window < 1) return out;
+            for (let i = window - 1; i < data.length; i++) {
+                let sum = 0;
+                for (let j = i - window + 1; j <= i; j++) sum += data[j];
+                out[i] = sum / window;
+            }
+            return out;
+        }
+
+        // -------------------------------------------------------------------
+        //  Data fetching
+        // -------------------------------------------------------------------
+
+        async function loadData() {
+            const resp = await fetch(API_BASE + '/timeseries');
+            if (!resp.ok) {
+                console.error('Failed to load timeseries data');
+                return;
+            }
+            _fullData = await resp.json();
+            document.getElementById('step-info').textContent =
+                'Steps: 0 – ' + (_fullData.steps > 0 ? _fullData.steps - 1 : 0) +
+                '  (' + _fullData.steps + ' total)';
+        }
+
+        // -------------------------------------------------------------------
+        //  Data resolution: given a series descriptor, return {label, data}
+        // -------------------------------------------------------------------
+
+        function resolveSeriesData(s) {
+            const layer = _fullData.layers[s.layerName];
+            if (!layer) return { label: '?', data: [] };
+
+            let raw;
+            if (s.sourceType === 'product') {
+                const prod = layer.products.find(p => p.product_name === s.productName);
+                if (!prod) return { label: '?', data: [] };
+                // Built-in fields are direct properties: price_history, total_cost_history, margin_history
+                // Flex data fields live inside prod.flex_data dict
+                if (BUILTIN_FIELDS.includes(s.field)) {
+                    raw = prod[s.field + '_history'];
+                } else {
+                    raw = (prod.flex_data && prod.flex_data[s.field]) ? prod.flex_data[s.field] : [];
+                }
+                if (!Array.isArray(raw)) raw = [];
+            } else {
+                // aggregate — only built-in fields are precomputed
+                const aggDict = layer.aggregates[s.field];
+                if (!aggDict) return { label: '?', data: [] };
+                raw = aggDict[s.aggType];
+                if (!Array.isArray(raw)) raw = [];
+            }
+
+            // Apply transform
+            const tx = TRANSFORMS[s.transform] || TRANSFORMS.none;
+            const param = (s.transformParams?.window != null) ? s.transformParams.window : (tx.defaultParams?.window ?? 3);
+            let data = tx.fn(raw, param);
+
+            // Build label
+            let label;
+            if (s.sourceType === 'product') {
+                label = s.productName + ' · ' + s.field;
+            } else {
+                label = s.layerName + ' · ' + s.aggType + ' ' + s.field;
+            }
+            if (s.transform !== 'none') {
+                label += ' [' + tx.label;
+                if (s.transform === 'moving_average') {
+                    label += ' w=' + (s.transformParams?.window || 3);
+                }
+                label += ']';
+            }
+
+            return { label, data };
+        }
+
+        // -------------------------------------------------------------------
+        //  Chart rendering
+        // -------------------------------------------------------------------
+
+        function rebuildChart() {
+            const canvas = document.getElementById('chart');
+            const emptyMsg = document.getElementById('chart-empty');
+
+            if (_chartInstance) {
+                _chartInstance.destroy();
+                _chartInstance = null;
+            }
+
+            const datasets = [];
+            for (const s of _series) {
+                if (s.visible === false) continue;
+                const { label, data } = resolveSeriesData(s);
+                datasets.push({
+                    label: label,
+                    data: data,
+                    borderColor: s.color,
+                    backgroundColor: s.color + '22',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0,
+                    spanGaps: false,
+                });
+            }
+
+            if (datasets.length === 0) {
+                emptyMsg.style.display = 'flex';
+                return;
+            }
+            emptyMsg.style.display = 'none';
+
+            const steps = _fullData ? _fullData.steps : 0;
+            const labels = Array.from({ length: steps }, (_, i) => 't' + i);
+
+            _chartInstance = new Chart(canvas, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 200 },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#d0d0e8',
+                                boxWidth: 14,
+                                boxHeight: 14,
+                                padding: 16,
+                                font: { size: 11 },
+                                usePointStyle: true,
+                                pointStyleWidth: 8,
+                            },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const val = ctx.parsed.y;
+                                    return ctx.dataset.label + ': ' +
+                                        (val === null ? '—' : val.toFixed(4));
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Step', color: '#a7a9be' },
+                            ticks: { color: '#a7a9be', font: { size: 10 } },
+                            grid: { color: '#2a2a3e' },
+                        },
+                        y: {
+                            title: { display: true, text: 'Value', color: '#a7a9be' },
+                            ticks: { color: '#a7a9be', font: { size: 10 } },
+                            grid: { color: '#2a2a3e' },
+                        },
+                    },
+                },
+            });
+        }
+
+        function resetZoom() {
+            if (_chartInstance) _chartInstance.resetZoom();
+        }
+
+        function exportChartPNG() {
+            if (!_chartInstance) return;
+            const url = _chartInstance.toBase64Image('image/png', 1);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'timeseries_' + (_fullData?.economy_name || 'export') + '.png';
+            a.click();
+        }
+
+        // -------------------------------------------------------------------
+        //  Series builder UI
+        // -------------------------------------------------------------------
+
+        function nextColor() {
+            return COLORS[_series.length % COLORS.length];
+        }
+
+        function layerNames() {
+            if (!_fullData) return [];
+            return Object.keys(_fullData.layers);
+        }
+
+        function productsForLayer(layerName) {
+            const layer = _fullData?.layers[layerName];
+            if (!layer) return [];
+            return layer.products.map(p => p.product_name);
+        }
+
+        function fieldsForLayer(layerName, sourceType) {
+            if (sourceType === 'aggregate') return BUILTIN_FIELDS; // only built-in fields have precomputed aggregates
+            const layer = _fullData?.layers[layerName];
+            if (!layer) return BUILTIN_FIELDS;
+            const fields = [...BUILTIN_FIELDS];
+            if (layer.flex_fields) {
+                for (const f of layer.flex_fields) {
+                    if (!fields.includes(f)) fields.push(f);
+                }
+            }
+            return fields;
+        }
+
+        function addSeries() {
+            if (!_fullData) return;
+            const layers = layerNames();
+            if (layers.length === 0) return;
+
+            const id = ++_nextId;
+            const layerName = layers[0];
+            const sourceType = 'product';
+            const field = 'price';
+            const s = {
+                id,
+                color: nextColor(),
+                layerName,
+                sourceType,
+                productName: productsForLayer(layerName)[0] || '',
+                aggType: 'mean',
+                field,
+                transform: 'none',
+                transformParams: {},
+                visible: true,
+            };
+            _series.push(s);
+            _openCardIds.add(id);
+            renderSeriesList();
+            rebuildChart();
+        }
+
+        function removeSeries(id) {
+            _series = _series.filter(s => s.id !== id);
+            _openCardIds.delete(id);
+            renderSeriesList();
+            rebuildChart();
+        }
+
+        function toggleSeriesVisible(id) {
+            const s = _series.find(s => s.id === id);
+            if (!s) return;
+            s.visible = !(s.visible !== false); // default true → false, false → true
+            rebuildChart();
+            renderSeriesList();
+        }
+
+        function updateSeries(id, key, value) {
+            const s = _series.find(s => s.id === id);
+            if (!s) return;
+            s[key] = value;
+
+            // Reset dependent fields when switching source type or layer
+            if (key === 'sourceType') {
+                if (value === 'product') {
+                    s.productName = productsForLayer(s.layerName)[0] || '';
+                } else {
+                    s.aggType = 'mean';
+                }
+                // field may need resetting (flex fields only valid for product mode)
+                const fields = fieldsForLayer(s.layerName, value);
+                if (!fields.includes(s.field)) s.field = 'price';
+            }
+            if (key === 'layerName') {
+                if (s.sourceType === 'product') {
+                    const prods = productsForLayer(value);
+                    s.productName = prods[0] || '';
+                }
+                // Reset field if it's not valid for the new layer/mode
+                const fields = fieldsForLayer(value, s.sourceType);
+                if (!fields.includes(s.field)) s.field = 'price';
+            }
+
+            rebuildChart();
+            renderSeriesList();
+        }
+
+        function updateTransformParam(id, paramKey, value) {
+            const s = _series.find(s => s.id === id);
+            if (!s) return;
+            if (!s.transformParams) s.transformParams = {};
+            s.transformParams[paramKey] = value;
+            rebuildChart();
+            renderSeriesList();
+        }
+
+        function updateCardLabel(id) {
+            const s = _series.find(s => s.id === id);
+            if (!s) return;
+            const { label } = resolveSeriesData(s);
+            const el = document.getElementById('series-label-' + id);
+            if (el) el.textContent = label;
+        }
+
+        function renderSeriesList() {
+            const container = document.getElementById('series-list');
+            if (_series.length === 0) {
+                container.innerHTML = '<div class="series-empty">No series added yet.<br>Click <strong>+ Add Series</strong> to start graphing.</div>';
+                return;
+            }
+
+            container.innerHTML = _series.map(s => {
+                const layers = layerNames();
+                const products = productsForLayer(s.layerName);
+                const fields = fieldsForLayer(s.layerName, s.sourceType);
+                const { label } = resolveSeriesData(s);
+                const tx = TRANSFORMS[s.transform] || TRANSFORMS.none;
+                const isOpen = _openCardIds.has(s.id);
+                const hidden = s.visible === false;
+
+                return `
+                <div class="series-card${isOpen ? ' open' : ''}${hidden ? ' series-hidden' : ''}" id="series-card-${s.id}" style="--s-color:${s.color}">
+                    <div class="series-card-header" onclick="toggleCard(${s.id})">
+                        <span class="s-color-dot"></span>
+                        <span class="s-label" id="series-label-${s.id}" title="${escapeAttr(label)}">${escapeAttr(label)}</span>
+                        <button class="s-vis-toggle" onclick="event.stopPropagation();toggleSeriesVisible(${s.id})" title="${hidden ? 'Show series on chart' : 'Hide series from chart'}">${hidden ? '&#9673;' : '&#128065;'}</button>
+                        <button class="s-remove" onclick="event.stopPropagation();removeSeries(${s.id})" title="Remove series">&times;</button>
+                        <span class="s-caret">&#9654;</span>
+                    </div>
+                    <div class="series-card-body">
+                        <div class="field-row">
+                            <label>Layer</label>
+                            <select onchange="updateSeries(${s.id},'layerName',this.value)">
+                                ${layers.map(l => `<option value="${escapeAttr(l)}" ${l === s.layerName ? 'selected' : ''}>${escapeAttr(l)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="field-row">
+                            <label>Source</label>
+                            <div class="source-toggle">
+                                <button class="${s.sourceType === 'product' ? 'active' : ''}" onclick="updateSeries(${s.id},'sourceType','product')">Product</button>
+                                <button class="${s.sourceType === 'aggregate' ? 'active' : ''}" onclick="updateSeries(${s.id},'sourceType','aggregate')">Layer Agg</button>
+                            </div>
+                        </div>
+                        ${s.sourceType === 'product' ? `
+                        <div class="field-row">
+                            <label>Product</label>
+                            <select onchange="updateSeries(${s.id},'productName',this.value)">
+                                ${products.map(p => `<option value="${escapeAttr(p)}" ${p === s.productName ? 'selected' : ''}>${escapeAttr(p)}</option>`).join('')}
+                            </select>
+                        </div>` : `
+                        <div class="field-row">
+                            <label>Aggregate</label>
+                            <select onchange="updateSeries(${s.id},'aggType',this.value)">
+                                ${AGGREGATES.map(a => `<option value="${a}" ${a === s.aggType ? 'selected' : ''}>${a}</option>`).join('')}
+                            </select>
+                        </div>`}
+                        <div class="field-row">
+                            <label>Field</label>
+                            <select onchange="updateSeries(${s.id},'field',this.value)">
+                                ${fields.map(f => `<option value="${f}" ${f === s.field ? 'selected' : ''}>${f}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="field-row">
+                            <label>Transform</label>
+                            <select onchange="updateSeries(${s.id},'transform',this.value)">
+                                ${Object.entries(TRANSFORMS).map(([key, t]) => `<option value="${key}" ${key === s.transform ? 'selected' : ''}>${t.label}</option>`).join('')}
+                            </select>
+                            ${tx.hasParams && s.transform === 'moving_average' ? `
+                            <label style="min-width:auto">window</label>
+                            <input type="number" min="1" max="20" value="${s.transformParams?.window || 3}"
+                                   onchange="updateTransformParam(${s.id},'window',parseInt(this.value)||3)">` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function toggleCard(id) {
+            const card = document.getElementById('series-card-' + id);
+            if (!card) return;
+            if (card.classList.contains('open')) {
+                card.classList.remove('open');
+                _openCardIds.delete(id);
+            } else {
+                card.classList.add('open');
+                _openCardIds.add(id);
+            }
+        }
+
+        function escapeAttr(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // -------------------------------------------------------------------
+        //  Init
+        // -------------------------------------------------------------------
+
+        async function init() {
+            await loadData();
+            // Ready — user can now add series.
+        }
+
+        init();
+    </script>
+</body>
+</html>

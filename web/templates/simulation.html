@@ -641,6 +641,7 @@
         <button class="btn" id="snapshot-btn" onclick="viewCurrentSnapshot()" style="border-color:#80cbc4; color:#80cbc4;">&#9678; View Snapshot</button>
         <button class="btn" id="changelog-btn" onclick="openChangelog()" style="border-color:#ff9800; color:#ffcc80;" title="View change log for this economy">&#128221; Changelog</button>
         <button class="btn" id="fork-btn" onclick="forkEconomy()" style="border-color:#ab47bc; color:#ce93d8;" title="Fork this economy — only allowed when no changes have been made at the current step">&#9683; Fork</button>
+        <a class="btn" href="/economy/{{ economy_id }}/timeseries" style="border-color:#42a5f5; color:#90caf9; text-decoration:none;" title="Open time-series analytics for this economy">&#128200; Analytics</a>
         <span id="step-label" style="font-size:0.78rem; color:#a7a9be;"></span>
         <div class="legend">
             <div class="legend-item" id="global-legend-item" style="display:none">
@@ -1080,6 +1081,10 @@
                 });
         }
 
+        function getStat(stats, label) {
+            return stats.find(d => d.label === label) || {};
+        }
+
         function openSnapshotModal(snapshot) {
             const modal = document.getElementById('snapshot-modal');
             const body = document.getElementById('snapshot-modal-body');
@@ -1093,17 +1098,20 @@
             }
             titleEl.textContent = '陸 Snapshot — step ' + snapshot.timestamp;
             const layerEntries = Object.entries(snapshot.layer_insights);
-            const tableRows = layerEntries.map(([_, s]) => `
+            const tableRows = layerEntries.map(([_, s]) => {
+                const sp = getStat(s.stats, 'Sale Price');
+                const uc = getStat(s.stats, 'Unit Cost');
+                return `
                 <tr>
                     <td>${s.layer_name}</td>
-                    <td>${s.product_count}</td>
-                    <td>${fmtNum(s.mean_price)}</td>
-                    <td>${fmtNum(s.std_dev_price)}</td>
-                    <td>${fmtNum(s.min_price)}</td>
-                    <td>${fmtNum(s.max_price)}</td>
-                    <td>${fmtNum(s.mean_unit_cost)}</td>
-                </tr>
-            `).join('');
+                    <td>${sp.count}</td>
+                    <td>${fmtNum(sp.mean)}</td>
+                    <td>${fmtNum(sp.population_stdev)}</td>
+                    <td>${fmtNum(sp.min)}</td>
+                    <td>${fmtNum(sp.max)}</td>
+                    <td>${fmtNum(uc.mean)}</td>
+                </tr>`;
+            }).join('');
             body.innerHTML = `
                 <div class="snapshot-chart-wrap"><canvas id="snapshot-chart-canvas"></canvas></div>
                 <table class="stats-table">
@@ -1117,8 +1125,8 @@
             modal.classList.add('open');
             const canvas = document.getElementById('snapshot-chart-canvas');
             const labels = layerEntries.map(([_, s]) => s.layer_name);
-            const means = layerEntries.map(([_, s]) => s.mean_price);
-            const stds = layerEntries.map(([_, s]) => s.std_dev_price);
+            const means = layerEntries.map(([_, s]) => getStat(s.stats, 'Sale Price').mean);
+            const stds = layerEntries.map(([_, s]) => getStat(s.stats, 'Sale Price').population_stdev);
             const colors = ['#7986cb', '#80cbc4', '#ffb74d', '#ef5350', '#66bb6a'];
             _snapshotChart = new Chart(canvas.getContext('2d'), {
                 type: 'bar',

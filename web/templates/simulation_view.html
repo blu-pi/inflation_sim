@@ -543,6 +543,30 @@
             color: #ffb74d;
             box-shadow: 0 0 0 3px rgba(255,183,77,0.15);
         }
+
+        .ts-lane-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1.5px solid #3a3a5e;
+            background: transparent;
+            color: #5a5a78;
+            cursor: pointer;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            margin-right: 4px;
+            text-decoration: none;
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
+            line-height: 1;
+        }
+        .ts-lane-btn:hover {
+            border-color: #42a5f5;
+            color: #42a5f5;
+            background: rgba(66,165,245,0.1);
+        }
     </style>
 </head>
 <body>
@@ -789,6 +813,7 @@
                           ondragend="onDragEnd(event)"
                           title="Drag to reorder economy within group">&#8942;&#8942;</span>
                     <button class="compare-toggle" data-economy-id="${economy.id}" onclick="toggleCompare(${economy.id}, this)" title="Select for comparison">&#9679;</button>
+                    <a class="ts-lane-btn" href="/economy/${economy.id}/timeseries" title="Time-series analytics for ${escapeAttr(economy.name)}">&#128200;</a>
                     <span class="lane-label" title="${escapeAttr(economy.name)}">${escapeAttr(economy.name)}</span>
                     <div class="lane-nodes">${slots}</div>
                 </div>
@@ -844,19 +869,32 @@
         }
 
         function alignAxesAndAnnotations() {
-            const firstLaneNodes = document.querySelector('.lane-nodes');
-            const simWrap = document.querySelector('.sim-wrap');
-            if (!firstLaneNodes || !simWrap) return;
-
-            const nodesLeft = firstLaneNodes.getBoundingClientRect().left;
-            const wrapLeft = simWrap.getBoundingClientRect().left;
-            const offset = nodesLeft - wrapLeft;
-
+            // Align each annotation lane to its own corresponding lane's nodes.
+            // Annot-lane sits inside .timeline-wrap (which has left padding), so
+            // we measure offset from timeline-wrap's content edge — NOT sim-wrap
+            // — to avoid double-counting the intermediate padding/border.
             document.querySelectorAll('.annot-lane').forEach(el => {
-                el.style.marginLeft = offset + 'px';
+                const econId = el.dataset.economyId;
+                if (!econId) return;
+                const lane = document.querySelector(`.lane[data-economy-id="${econId}"]`);
+                if (!lane) return;
+                const laneNodes = lane.querySelector('.lane-nodes');
+                if (!laneNodes) return;
+                const tw = el.parentElement; // .timeline-wrap
+                const twRect = tw.getBoundingClientRect();
+                const twPadLeft = parseFloat(getComputedStyle(tw).paddingLeft);
+                const contentLeft = twRect.left + twPadLeft;
+                el.style.marginLeft = (laneNodes.getBoundingClientRect().left - contentLeft) + 'px';
             });
+
+            // Shared step axis — direct child of .sim-wrap, so simWrap.left is correct
+            const simWrap = document.querySelector('.sim-wrap');
+            const firstLaneNodes = document.querySelector('.lane-nodes');
             const axis = document.querySelector('.step-axis');
-            if (axis) axis.style.marginLeft = offset + 'px';
+            if (simWrap && firstLaneNodes && axis) {
+                const wrapLeft = simWrap.getBoundingClientRect().left;
+                axis.style.marginLeft = (firstLaneNodes.getBoundingClientRect().left - wrapLeft) + 'px';
+            }
         }
 
         function redrawConnectorsAndAxes() {
@@ -1127,21 +1165,28 @@
                 });
         }
 
+        function getStat(stats, label) {
+            return stats.find(d => d.label === label) || {};
+        }
+
         function renderSnapshotModal(economyId, snapshot) {
             const economy = findEconomy(economyId);
             const layerEntries = Object.entries(snapshot.layer_insights);
 
-            const tableRows = layerEntries.map(([_, s]) => `
+            const tableRows = layerEntries.map(([_, s]) => {
+                const sp = getStat(s.stats, 'Sale Price');
+                const uc = getStat(s.stats, 'Unit Cost');
+                return `
                 <tr>
                     <td>${escapeAttr(s.layer_name)}</td>
-                    <td>${s.product_count}</td>
-                    <td>${formatPrice(s.mean_price)}</td>
-                    <td>${formatPrice(s.std_dev_price)}</td>
-                    <td>${formatPrice(s.min_price)}</td>
-                    <td>${formatPrice(s.max_price)}</td>
-                    <td>${formatPrice(s.mean_unit_cost)}</td>
-                </tr>
-            `).join('');
+                    <td>${sp.count}</td>
+                    <td>${formatPrice(sp.mean)}</td>
+                    <td>${formatPrice(sp.population_stdev)}</td>
+                    <td>${formatPrice(sp.min)}</td>
+                    <td>${formatPrice(sp.max)}</td>
+                    <td>${formatPrice(uc.mean)}</td>
+                </tr>`;
+            }).join('');
 
             const bodyHtml = `
                 <div class="snapshot-chart-wrap"><canvas id="snapshot-chart"></canvas></div>
@@ -1166,8 +1211,8 @@
             const canvas = document.getElementById('snapshot-chart');
             if (!canvas) return;
             const labels = layerEntries.map(([_, s]) => s.layer_name);
-            const means = layerEntries.map(([_, s]) => s.mean_price);
-            const stds = layerEntries.map(([_, s]) => s.std_dev_price);
+            const means = layerEntries.map(([_, s]) => getStat(s.stats, 'Sale Price').mean);
+            const stds = layerEntries.map(([_, s]) => getStat(s.stats, 'Sale Price').population_stdev);
             const colors = ['#7986cb', '#80cbc4', '#ffb74d', '#ef5350', '#66bb6a'];
             _modalChart = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
